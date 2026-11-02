@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1" width="42mm" height="86mm" viewBox="-30 -30 420 860">
+<title>Ikkinchi yon panel foni</title>
+<defs>
+<linearGradient id="yf-main" gradientUnits="userSpaceOnUse" x1="0" y1="360" x2="800" y2="0"><stop offset="0" stop-color="#0E2C6F"/><stop offset="0.5" stop-color="#173F96"/><stop offset="1" stop-color="#1F74D0"/></linearGradient>
+<linearGradient id="yf-lb" gradientUnits="userSpaceOnUse" x1="0" y1="300" x2="800" y2="0"><stop offset="0" stop-color="#3D8FDD"/><stop offset="1" stop-color="#9FD0F4"/></linearGradient>
+<linearGradient id="yf-logo-or" gradientUnits="userSpaceOnUse" x1="0" y1="110" x2="380" y2="0"><stop offset="0" stop-color="#EE7F1A"/><stop offset="1" stop-color="#F39A26"/></linearGradient>
+<linearGradient id="yf-logo-ye" gradientUnits="userSpaceOnUse" x1="200" y1="0" x2="590" y2="140"><stop offset="0" stop-color="#F6A92A"/><stop offset="0.6" stop-color="#FAC046"/><stop offset="1" stop-color="#F7B233"/></linearGradient>
+<linearGradient id="yf-pill" gradientUnits="userSpaceOnUse" x1="430" y1="0" x2="740" y2="0"><stop offset="0" stop-color="#173C8E"/><stop offset="0.55" stop-color="#1D5AA8"/><stop offset="1" stop-color="#3FA24A"/></linearGradient>
+<clipPath id="yf-bleed-clip"><rect x="-30" y="-30" width="420" height="860"/></clipPath>
+</defs>
+<g clip-path="url(#yf-bleed-clip)">
+<g id="FON">
+<g id="yf-fon-r" transform="translate(0,800) rotate(-90)">
+<rect x="-40" y="-40" width="880" height="440" fill="#FFFFFF"/>
+<path fill="#23994A" d="M-40,262 C200,262 480,258 840,232 L840,242 C480,268 200,272 -40,272 Z"/>
+<path fill="#8DC63F" d="M-40,274 C200,274 480,270 840,246 L840,252 C480,276 200,280 -40,280 Z"/>
+<path fill="url(#yf-lb)" d="M-40,284 C200,284 480,280 840,256 L840,266 C480,290 200,294 -40,294 Z"/>
+<path fill="url(#yf-main)" d="M-40,300 C200,300 480,296 840,272 L840,400 L-40,400 Z"/>
+<path d="M742,70 L721.22,58 L721.22,34 L742,22 L762.78,34 L762.78,58 Z" fill="#DCEDFB" stroke="#BBD9F3" stroke-width="2"/>
+<path d="M782,102 L766.41,93 L766.41,75 L782,66 L797.59,75 L797.59,93 Z" fill="none" stroke="#BBD9F3" stroke-width="2"/>
+<path d="M706,108 L692.14,100 L692.14,84 L706,76 L719.86,84 L719.86,100 Z" fill="#E6F2FC" stroke="#BBD9F3" stroke-width="2"/>
+</g>
+</g>
+</g>
+</svg>
