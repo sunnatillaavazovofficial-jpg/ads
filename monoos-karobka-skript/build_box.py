@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""MONOOS Cefoperazone + Sulbactam karobka dizaynini vektor (SVG) qilib chizadi.
+"""MONOOS karobka dizaynini (Cefoperazone / Ampicillin + Sulbactam) vektor (SVG) qilib chizadi.
 
 Har bir detal alohida: logo, fon, matn, shtrix-kod, panellar, flakon etiketkasi
 va qutining to'liq razvyortkasi (kesish/bukish chiziqlari bilan).
@@ -7,7 +7,8 @@ va qutining to'liq razvyortkasi (kesish/bukish chiziqlari bilan).
 Matnlar shrift konturlariga (curves) aylantirilgan, shuning uchun CorelDRAW /
 Illustrator'da shrift o'rnatilmagan bo'lsa ham to'g'ri ochiladi.
 
-Ishlatish:  python3 build_box.py <shriftlar_papkasi> <chiqish_papkasi>
+Ishlatish:  python3 build_box.py <shriftlar_papkasi> <chiqish_papkasi> [mahsulot]
+            mahsulot: cefoperazone (standart) yoki ampicillin — pastdagi PRODUCTS ga qarang.
 Shriftlar (Google Fonts, bepul): RobotoCondensed[wght].ttf, Roboto[wdth,wght].ttf,
 Montserrat[wght].ttf
 """
@@ -21,6 +22,7 @@ from fontTools.ttLib import TTFont
 
 FONT_DIR = sys.argv[1] if len(sys.argv) > 1 else "fonts"
 OUT = sys.argv[2] if len(sys.argv) > 2 else "out"
+PRODUCT = sys.argv[3] if len(sys.argv) > 3 else "cefoperazone"
 
 # ---------------------------------------------------------------- o'lchamlar
 # Quti (mm): old panel eni W, chuqurligi D (yon panel eni), balandligi H.
@@ -32,20 +34,93 @@ GLUE = 14            # mm, yelim qanoti
 # Panel ichki koordinatalari 0.1 mm birlikda (old panel 600 x 800).
 U = 0.1
 
-# ---------------------------------------------------------------- ranglar
-NAVY = "#1A3D91"       # CEFOPERAZONE, logo yozuvi
-NAVY_DARK = "#0E2C6F"
-TEXT = "#1E2D5C"       # oddiy matn
-SIDE_TEXT = "#22307A"  # yon panel matni
-GREEN = "#2C8C3D"      # SULBACTAM
-GREEN_BADGE = "#2E8B3E"
-BLUE = "#1F77D3"
-LIGHT_BLUE = "#8CC8F2"
-PALE_BLUE = "#DCEDFB"
-G_DARK = "#23994A"
-G_LIME = "#8DC63F"
-ORANGE = "#F08A1E"
-YELLOW = "#F8B330"
+# ---------------------------------------------------------------- mahsulotlar
+_SIDE_COMMON = [
+    ("Dosage:", ["As directed by the physician."]),
+    ("Storage:", ["Store below 25°C", "in a dry place, away from light.",
+                  "Keep out of reach of children."]),
+    (None, ["Reconstituted solution is stable for", "7 days at 2°C-8°C or 24 hours",
+            "at 8°C-25°C."]),
+]
+_MANUF = ["*SWISS PARENTERALS LTD.", "402, 412-414, Kerala Industrial",
+          "Estate, G.I.D.C., Nr. Bavla,", "Dist.: Ahmedabad-382 220,", "Gujarat, India."]
+
+# Har bir mahsulot: matnlar, asosiy ranglar va fon ranglarini almashtirish jadvali (remap).
+# Fon ranglari Cefoperazone (ko'k-yashil) varianti asosida yozilgan; remap ularni
+# boshqa mahsulot ranglariga o'tkazadi.
+PRODUCTS = {
+    "cefoperazone": dict(
+        title1="CEFOPERAZONE", title1_w=(440, 352, 340),      # old panel, yon panel 2, qopqoq
+        title2="SULBACTAM", title2_w=(356, 284, 272),
+        sub="Cefoperazone and Sulbactam", sub_w=366,
+        dose="1000 mg + 500 mg", pill_w=374, dose_cap=27,
+        side=[("Composition:", ["Each vial contains:", "Cefoperazone Sodium USP",
+                                "equivalent to Cefoperazone 1000 mg", "Sulbactam Sodium USP",
+                                "equivalent to Sulbactam 500 mg"])] + _SIDE_COMMON +
+             [("Manufactured by:", _MANUF)],
+        lic="Mfg. Lic. No.:",
+        c_title1="#1A3D91", c_title2="#2C8C3D", c_badge="#2E8B3E", c_sub="#1A3D91",
+        c_ml="#1A3D91", c_body="#1E2D5C", c_side="#22307A", c_side_accent="#22307A",
+        c_logo_text="#1A3D91", c_logo_swoosh="#1A3D91",
+        logo_arc1=[(0, "#EE7F1A"), (1, "#F39A26")],
+        logo_arc2=[(0, "#F6A92A"), (0.6, "#FAC046"), (1, "#F7B233")],
+        pill=[(0, "#173C8E"), (0.55, "#1D5AA8"), (1, "#3FA24A")],
+        remap={},
+    ),
+    "ampicillin": dict(
+        title1="AMPICILLIN", title1_w=(355, 284, 274),
+        title2="SULBACTAM", title2_w=(356, 284, 272),
+        sub="Ampicillin and Sulbactam", sub_w=334,
+        dose="1.5 g (1000 mg + 500 mg)", pill_w=404, dose_cap=22.5,
+        side=[("Composition:", ["Each vial contains:", "Ampicillin Sodium USP",
+                                "equivalent to Ampicillin 1000 mg", "Sulbactam Sodium USP",
+                                "equivalent to Sulbactam 500 mg"])] + _SIDE_COMMON +
+             [("~Manufactured by:", _MANUF)],
+        lic="Mfg. Lic. No. :",
+        c_title1="#561C8E", c_title2="#13809A", c_badge="#5A1690", c_sub="#2B2068",
+        c_ml="#3A1A7A", c_body="#23224A", c_side="#3E3B5C", c_side_accent="#4E2385",
+        c_logo_text="#1A1B5E", c_logo_swoosh="#2B1B6E",
+        logo_arc1=[(0, "#5E1E98"), (1, "#8A49BE")],
+        logo_arc2=[(0, "#7C3FB4"), (0.55, "#2F86B0"), (1, "#38C4D4")],
+        pill=[(0, "#3E1489"), (0.55, "#3A2E92"), (1, "#17A6BB")],
+        remap={
+            # to'q ko'k -> to'q binafsha
+            "#0E2C6F": "#381A72", "#153B8E": "#45218A", "#1A50AC": "#5428A0", "#1F63C2": "#6633B2",
+            "#173F96": "#4A2390", "#1F74D0": "#6C38B6",
+            # ko'k lenta -> binafsha
+            "#1E6ACB": "#5A2CA8", "#2A86DD": "#7A44C4", "#69B6F0": "#A57BE0",
+            # och ko'k chiziq -> lavanda
+            "#5AA8E8": "#8E5CCF", "#8CC8F2": "#B591E6", "#C4E3F9": "#D9C6F4",
+            "#3D8FDD": "#7A44C4", "#9FD0F4": "#C6A9EE", "#7DBDEF": "#B08AE6",
+            # burchak / och fon
+            "#A9D5F5": "#CDB6F0", "#E1F0FC": "#EEE6FA", "#F4F9FE": "#F8F5FD", "#D5EAFA": "#E9DEF8",
+            # yashil -> moviy (teal)
+            "#3FA94E": "#22B3CC", "#23994A": "#138FA6", "#1A7F3E": "#0D6F86",
+            "#B8DC5C": "#8EE0EE", "#7DBE3E": "#4CC6DC", "#8DC63F": "#5CCDE0",
+            # pastki och lenta -> och moviy
+            "#D2E9FA": "#D8F2F7", "#8EC6F2": "#7FD3E3", "#3C8EDD": "#1FA8C4",
+            # oltiburchaklar
+            "#D6EAFA": "#E3D8F6", "#E4F1FC": "#EEE7FA", "#E2F0FC": "#ECE4F9", "#C3DEF4": "#D3C2F0",
+            "#DCEDFB": "#E6DCF8", "#E6F2FC": "#EEE7FA", "#BBD9F3": "#CDBBEE",
+            "#D3E8FA": "#CFDDF7", "#C9E2F8": "#C5D6F5", "#E1EFFC": "#E0E8FA",
+            "#B4D5F1": "#B5C9EE", "#A9CFEF": "#AFC3EC", "#9CC8EC": "#A2B7E8",
+        },
+    ),
+}
+TH = PRODUCTS[PRODUCT]
+
+
+def C(c):
+    """Fon rangini tanlangan mahsulot ranglariga o'tkazadi."""
+    return TH["remap"].get(c.upper(), c) if isinstance(c, str) else c
+
+
+TITLE1, TITLE2, BADGE, SUBC = TH["c_title1"], TH["c_title2"], TH["c_badge"], TH["c_sub"]
+MLC, TEXT, SIDE_TEXT, SIDE_ACCENT = TH["c_ml"], TH["c_body"], TH["c_side"], TH["c_side_accent"]
+LOGO_TEXT, LOGO_SWOOSH = TH["c_logo_text"], TH["c_logo_swoosh"]
+NAVY_DARK = C("#0E2C6F")
+G_DARK = C("#23994A")
+G_LIME = C("#8DC63F")
 
 
 def n(v):
@@ -119,6 +194,12 @@ def text(font, s, x, y, size, fill, anchor="start", width=None, maxwidth=None,
     return f'<path fill="{fill}" d="{d}"/>'
 
 
+def fit_cap(font, s, maxw, cap_max):
+    """Matn maxw ga sig'adigan eng katta bosh harf balandligi (cap_max dan oshmaydi)."""
+    w = font.width(s, cap_max / font.cap)
+    return cap_max if w <= maxw else cap_max * maxw / w
+
+
 def group(gid, body, extra=""):
     return f'<g id="{gid}"{extra}>\n{body}\n</g>'
 
@@ -145,7 +226,8 @@ class Art:
         gid = f"{self.p}-{name}"
         st = "".join(f'<stop offset="{o}" stop-color="{c}"' +
                      (f' stop-opacity="{a}"' if a != 1 else "") + "/>"
-                     for o, c, a in [(s + (1,))[:3] for s in stops])
+                     for o, c, a in [(s[0], C(s[1])) + tuple(s[2:3]) + (1,) * (len(s) < 3)
+                                     for s in stops])
         self.defs.append(f'<linearGradient id="{gid}" gradientUnits="userSpaceOnUse" '
                          f'x1="{n(x1)}" y1="{n(y1)}" x2="{n(x2)}" y2="{n(y2)}">{st}</linearGradient>')
         return f"url(#{gid})"
@@ -156,9 +238,11 @@ class Art:
 LOGO_W, LOGO_H = 600, 200
 
 
-def logo_body(a, color_text=NAVY, swoosh=NAVY):
-    g_or = a.lin("logo-or", 0, 110, 380, 0, [(0, "#EE7F1A"), (1, "#F39A26")])
-    g_ye = a.lin("logo-ye", 200, 0, 590, 140, [(0, "#F6A92A"), (0.6, "#FAC046"), (1, "#F7B233")])
+def logo_body(a, color_text=None, swoosh=None):
+    color_text = color_text or LOGO_TEXT
+    swoosh = swoosh or LOGO_SWOOSH
+    g_or = a.lin("logo-or", 0, 110, 380, 0, TH["logo_arc1"])
+    g_ye = a.lin("logo-ye", 200, 0, 590, 140, TH["logo_arc2"])
     arc = (
         f'<path fill="{g_or}" d="M10,112 C80,58 160,30 240,18 C300,9 360,8 400,14 '
         f'L420,64 C280,58 140,76 10,112 Z"/>\n'
@@ -309,8 +393,8 @@ def front_background(a):
     for cx, cy, r, f, o in [(452, 96, 30, "#D6EAFA", 0.9), (420, 160, 20, "none", 1),
                             (470, 214, 24, "#E4F1FC", 1), (440, 40, 18, "none", 1),
                             (585, 300, 22, "#E2F0FC", 1)]:
-        hx.append(f'<path d="{hexagon(cx, cy, r)}" fill="{f}" fill-opacity="{o}" '
-                  f'stroke="#C3DEF4" stroke-width="2"/>')
+        hx.append(f'<path d="{hexagon(cx, cy, r)}" fill="{C(f)}" fill-opacity="{o}" '
+                  f'stroke="{C("#C3DEF4")}" stroke-width="2"/>')
     out.append(group(f"{a.p}-hex-yuqori", "\n".join(hx)))
 
 
@@ -334,31 +418,33 @@ def front_background(a):
     for cx, cy, r, f, o in [(560, 612, 26, "#D3E8FA", 0.95), (606, 660, 22, "none", 1),
                             (568, 714, 32, "#C9E2F8", 0.9), (620, 760, 20, "#E1EFFC", 1),
                             (530, 778, 18, "none", 1), (614, 566, 16, "#E6F2FC", 1)]:
-        hx.append(f'<path d="{hexagon(cx, cy, r)}" fill="{f}" fill-opacity="{o}" '
-                  f'stroke="#B4D5F1" stroke-width="2"/>')
+        hx.append(f'<path d="{hexagon(cx, cy, r)}" fill="{C(f)}" fill-opacity="{o}" '
+                  f'stroke="{C("#B4D5F1")}" stroke-width="2"/>')
     pts = [(532, 572), (560, 612), (606, 660), (568, 714), (530, 778)]
-    hx.append('<path fill="none" stroke="#A9CFEF" stroke-width="2" d="M' +
+    hx.append(f'<path fill="none" stroke="{C("#A9CFEF")}" stroke-width="2" d="M' +
               " L".join(f"{x},{y}" for x, y in pts) + '"/>')
     for x, y in pts + [(640, 700)]:
-        hx.append(f'<circle cx="{x}" cy="{y}" r="5" fill="#9CC8EC"/>')
+        hx.append(f'<circle cx="{x}" cy="{y}" r="5" fill="{C("#9CC8EC")}"/>')
     out.append(group(f"{a.p}-hex-pastki", "\n".join(hx)))
     return "\n".join(out)
 
 
 def front_text(a, bottom=True):
     t = []
-    t.append(group(f"{a.p}-nomi-1", text(F_TITLE, "CEFOPERAZONE", 44, 218, 0, NAVY,
-                                          cap=57, width=440, tracking=-0.005)))
-    t.append(group(f"{a.p}-nomi-2", text(F_TITLE, "SULBACTAM", 44, 286, 0, GREEN,
-                                          cap=55, width=356, tracking=-0.005)))
-    bio = (f'<rect x="410" y="232" width="76" height="54" rx="9" fill="{GREEN_BADGE}"/>\n' +
+    t.append(group(f"{a.p}-nomi-1", text(F_TITLE, TH["title1"], 44, 218, 0, TITLE1,
+                                          cap=57, width=TH["title1_w"][0], tracking=-0.005)))
+    t.append(group(f"{a.p}-nomi-2", text(F_TITLE, TH["title2"], 44, 286, 0, TITLE2,
+                                          cap=55, width=TH["title2_w"][0], tracking=-0.005)))
+    bio = (f'<rect x="410" y="232" width="76" height="54" rx="9" fill="{BADGE}"/>\n' +
            text(F_COND_B, "BIO", 448, 277, 0, "#FFFFFF", anchor="middle", cap=36, sx=0.95))
     t.append(group(f"{a.p}-bio", bio))
-    t.append(group(f"{a.p}-xalqaro-nomi", text(F_SUB, "Cefoperazone and Sulbactam", 45, 337, 0,
-                                                NAVY, cap=24, width=366)))
-    pill_g = a.lin("pill", 42, 0, 416, 0, [(0, "#173C8E"), (0.55, "#1D5AA8"), (1, "#3FA24A")])
-    pill = (f'<rect x="42" y="358" width="374" height="47" rx="10" fill="{pill_g}"/>\n' +
-            text(F_MED, "1000 mg + 500 mg", 229, 396, 0, "#FFFFFF", anchor="middle", cap=27))
+    t.append(group(f"{a.p}-xalqaro-nomi", text(F_SUB, TH["sub"], 45, 337, 0,
+                                                SUBC, cap=24, width=TH["sub_w"])))
+    pw = TH["pill_w"]
+    pill_g = a.lin("pill", 42, 0, 42 + pw, 0, TH["pill"])
+    pill = (f'<rect x="42" y="358" width="{pw}" height="47" rx="10" fill="{pill_g}"/>\n' +
+            text(F_MED, TH["dose"], 42 + pw / 2, 396, 0, "#FFFFFF", anchor="middle",
+                 cap=TH["dose_cap"]))
     t.append(group(f"{a.p}-dozasi", pill))
     lines = ["Powder for solution for injection", "For IM / IV use", "Prescription only medicine"]
     body = "\n".join(text(F_BODY, s, 45, 464 + 37 * i, 0, TEXT, cap=20.5) for i, s in enumerate(lines))
@@ -368,7 +454,7 @@ def front_text(a, bottom=True):
              text(F_MED, "1 vial", 92, 731, 0, "#FFFFFF", cap=22),
              '<rect x="176.5" y="686" width="3" height="56" fill="#FFFFFF"/>',
              '<rect x="196" y="691" width="110" height="50" rx="9" fill="#FFFFFF"/>',
-             text(F_SEMI, "20 ml", 251, 731, 0, NAVY, anchor="middle", cap=23)]
+             text(F_SEMI, "20 ml", 251, 731, 0, MLC, anchor="middle", cap=23)]
         t.append(group(f"{a.p}-hajmi", "\n".join(b)))
     return "\n".join(t)
 
@@ -443,19 +529,7 @@ def ean13(code, x, y, module, bar_h, color="#000000", digit_font=None):
 
 
 BARCODE = "8904180253442"
-SIDE_BLOCKS = [
-    ("Composition:", ["Each vial contains:", "Cefoperazone Sodium USP",
-                      "equivalent to Cefoperazone 1000 mg", "Sulbactam Sodium USP",
-                      "equivalent to Sulbactam 500 mg"]),
-    ("Dosage:", ["As directed by the physician."]),
-    ("Storage:", ["Store below 25°C", "in a dry place, away from light.",
-                  "Keep out of reach of children."]),
-    (None, ["Reconstituted solution is stable for", "7 days at 2°C-8°C or 24 hours",
-            "at 8°C-25°C."]),
-    ("Manufactured by:", ["*SWISS PARENTERALS LTD.", "402, 412-414, Kerala Industrial",
-                          "Estate, G.I.D.C., Nr. Bavla,", "Dist.: Ahmedabad-382 220,",
-                          "Gujarat, India."]),
-]
+SIDE_BLOCKS = TH["side"]
 
 
 def side_info_panel(prefix):
@@ -467,12 +541,15 @@ def side_info_panel(prefix):
     t = []
     for k, (head, lines) in enumerate(SIDE_BLOCKS):
         blk = []
-        if head:
-            blk.append(text(F_COND_B, head, x, y, 0, SIDE_TEXT, cap=cap + 0.6, maxwidth=maxw))
+        if head and head.startswith("~"):      # oddiy (qalin emas) sarlavha
+            blk.append(text(F_COND, head[1:], x, y, 0, SIDE_TEXT, cap=cap, maxwidth=maxw))
+            y += lh
+        elif head:
+            blk.append(text(F_COND_B, head, x, y, 0, SIDE_ACCENT, cap=cap + 0.6, maxwidth=maxw))
             y += lh
         for s in lines:
             if s.startswith("*"):
-                blk.append(text(F_COND_B, s[1:], x, y, 0, SIDE_TEXT, cap=cap, maxwidth=maxw))
+                blk.append(text(F_COND_B, s[1:], x, y, 0, SIDE_ACCENT, cap=cap, maxwidth=maxw))
             else:
                 blk.append(text(F_COND, s, x, y, 0, SIDE_TEXT, cap=cap, maxwidth=maxw))
             y += lh
@@ -481,7 +558,7 @@ def side_info_panel(prefix):
     y += 2
     lic = (f'<rect x="{x - 2}" y="{n(y)}" width="300" height="40" rx="6" fill="none" '
            f'stroke="{SIDE_TEXT}" stroke-width="1.6"/>\n' +
-           text(F_COND, "Mfg. Lic. No.:", x + 10, y + 26.5, 0, SIDE_TEXT, cap=cap))
+           text(F_COND, TH["lic"], x + 10, y + 26.5, 0, SIDE_TEXT, cap=cap))
     t.append(group(f"{prefix}-litsenziya", lic))
     bc_y = y + 56
     module = 2.8
@@ -508,17 +585,18 @@ def side_brand_panel(prefix):
                f'C480,290 200,294 -40,294 Z"/>')
     fon.append(f'<path fill="{main}" d="M-40,300 C200,300 480,296 840,272 L840,400 L-40,400 Z"/>')
     for cx, cy, r, f in [(742, 46, 24, "#DCEDFB"), (782, 84, 18, "none"), (706, 92, 16, "#E6F2FC")]:
-        fon.append(f'<path d="{hexagon(cx, cy, r)}" fill="{f}" stroke="#BBD9F3" stroke-width="2"/>')
+        fon.append(f'<path d="{hexagon(cx, cy, r)}" fill="{C(f)}" stroke="{C("#BBD9F3")}" stroke-width="2"/>')
     logo = group(f"{prefix}-logo", logo_body(a), ' transform="translate(40,30) scale(0.3)"')
     t = []
-    t.append(text(F_TITLE, "CEFOPERAZONE", 40, 160, 0, NAVY, cap=46, width=352))
-    t.append(text(F_TITLE, "SULBACTAM", 40, 222, 0, GREEN, cap=44, width=284))
-    t.append(f'<rect x="334" y="178" width="60" height="44" rx="7" fill="{GREEN_BADGE}"/>')
+    t.append(text(F_TITLE, TH["title1"], 40, 160, 0, TITLE1, cap=46, width=TH["title1_w"][1]))
+    t.append(text(F_TITLE, TH["title2"], 40, 222, 0, TITLE2, cap=44, width=TH["title2_w"][1]))
+    t.append(f'<rect x="334" y="178" width="60" height="44" rx="7" fill="{BADGE}"/>')
     t.append(text(F_COND_B, "BIO", 364, 214, 0, "#FFFFFF", anchor="middle", cap=29))
-    pill_g = a.lin("pill", 430, 0, 740, 0, [(0, "#173C8E"), (0.55, "#1D5AA8"), (1, "#3FA24A")])
+    pill_g = a.lin("pill", 430, 0, 740, 0, TH["pill"])
     t.append(f'<rect x="430" y="122" width="300" height="40" rx="9" fill="{pill_g}"/>')
-    t.append(text(F_MED, "1000 mg + 500 mg", 580, 154, 0, "#FFFFFF", anchor="middle", cap=22))
-    t.append(text(F_REG, "Cefoperazone and Sulbactam", 430, 196, 0, NAVY, cap=17, width=300))
+    t.append(text(F_MED, TH["dose"], 580, 154, 0, "#FFFFFF", anchor="middle",
+                  cap=fit_cap(F_MED, TH["dose"], 280, 22)))
+    t.append(text(F_REG, TH["sub"], 430, 196, 0, SUBC, cap=17, width=300))
     t.append(text(F_REG, "Powder for solution for injection", 430, 226, 0, TEXT, cap=15.5))
     t.append(text(F_MED, "For IM / IV use  ·  Prescription only medicine", 40, 344, 0,
                   "#FFFFFF", cap=17))
@@ -542,13 +620,13 @@ def top_lid(prefix):
     fon.append(f'<path fill="{G_DARK}" d="M0,300 C200,298 420,282 600,232 L600,242 '
                f'C420,292 200,308 0,309 Z"/>')
     for cx, cy, r, f in [(520, 70, 30, "#DCEDFB"), (565, 120, 24, "none"), (488, 130, 20, "#E6F2FC")]:
-        fon.append(f'<path d="{hexagon(cx, cy, r)}" fill="{f}" stroke="#BBD9F3" stroke-width="2"/>')
+        fon.append(f'<path d="{hexagon(cx, cy, r)}" fill="{C(f)}" stroke="{C("#BBD9F3")}" stroke-width="2"/>')
     logo = group(f"{prefix}-logo", logo_body(a), ' transform="translate(40,32) scale(0.3)"')
-    t = [text(F_TITLE, "CEFOPERAZONE", 40, 160, 0, NAVY, cap=44, width=340),
-         text(F_TITLE, "SULBACTAM", 40, 220, 0, GREEN, cap=42, width=272),
-         f'<rect x="322" y="178" width="58" height="42" rx="7" fill="{GREEN_BADGE}"/>',
+    t = [text(F_TITLE, TH["title1"], 40, 160, 0, TITLE1, cap=44, width=TH["title1_w"][2]),
+         text(F_TITLE, TH["title2"], 40, 220, 0, TITLE2, cap=42, width=TH["title2_w"][2]),
+         f'<rect x="322" y="178" width="58" height="42" rx="7" fill="{BADGE}"/>',
          text(F_COND_B, "BIO", 351, 213, 0, "#FFFFFF", anchor="middle", cap=28),
-         text(F_MED, "1000 mg + 500 mg", 40, 270, 0, NAVY, cap=21)]
+         text(F_MED, TH["dose"], 40, 270, 0, SUBC, cap=21)]
     return a, {"fon": "\n".join(fon), "logo": logo, "matn": "\n".join(t)}
 
 
@@ -559,7 +637,7 @@ def bottom_lid(prefix):
     t = []
     for i, lab in enumerate(["Batch No.:", "Mfg. Date:", "Exp. Date:"]):
         y = 70 + i * 90
-        t.append(text(F_COND_B, lab, 50, y + 38, 0, SIDE_TEXT, cap=20))
+        t.append(text(F_COND_B, lab, 50, y + 38, 0, SIDE_ACCENT, cap=20))
         t.append(f'<rect x="200" y="{y}" width="350" height="56" rx="6" fill="none" '
                  f'stroke="{SIDE_TEXT}" stroke-width="1.8"/>')
     return a, {"fon": fon, "matn": "\n".join(t)}
@@ -576,7 +654,7 @@ def vial_label(prefix):
     main = a.lin("wing", 0, 400, 900, 0, [(0, NAVY_DARK), (0.5, "#173F96"), (1, "#1F74D0")])
     # chap qanot: pastki navy to'lqin old qismning chap chetiga ulanadi (y~303)
     fon.append(f'<path fill="{main}" d="M-40,330 C80,332 200,318 {cx0 + 2},302 L{cx0 + 2},440 L-40,440 Z"/>')
-    fon.append(f'<path fill="#7DBDEF" d="M-40,300 C80,302 200,290 {cx0 + 2},274 L{cx0 + 2},295 '
+    fon.append(f'<path fill="{C("#7DBDEF")}" d="M-40,300 C80,302 200,290 {cx0 + 2},274 L{cx0 + 2},295 '
                f'C200,309 80,320 -40,318 Z"/>')
     # o'ng qanot
     fon.append(f'<path fill="{main}" d="M598,440 C700,360 800,334 940,330 L940,440 Z"/>')
@@ -586,7 +664,7 @@ def vial_label(prefix):
                f'C805,304 712,330 622,405 Z"/>')
     for cx, cy, r, f in [(840, 60, 24, "#DCEDFB"), (872, 100, 20, "none"), (230, 50, 22, "#E6F2FC"),
                          (262, 84, 16, "none")]:
-        fon.append(f'<path d="{hexagon(cx, cy, r)}" fill="{f}" stroke="#BBD9F3" stroke-width="2"/>')
+        fon.append(f'<path d="{hexagon(cx, cy, r)}" fill="{C(f)}" stroke="{C("#BBD9F3")}" stroke-width="2"/>')
     # markaziy qism (old panel dizayni)
     fa = Art(prefix + "-old")
     center_bg = front_background(fa)
@@ -604,7 +682,7 @@ def vial_label(prefix):
     yy, lh, cap, x = 46, 15.6, 9.2, 28
     for head, lines in SIDE_BLOCKS[:4]:
         if head:
-            left.append(text(F_COND_B, head, x, yy, 0, SIDE_TEXT, cap=cap + 0.4))
+            left.append(text(F_COND_B, head, x, yy, 0, SIDE_ACCENT, cap=cap + 0.4))
             yy += lh
         for s in lines:
             left.append(text(F_COND, s, x, yy, 0, SIDE_TEXT, cap=cap, maxwidth=250))
@@ -615,15 +693,19 @@ def vial_label(prefix):
     right = []
     x, yy = 628, 46
     head, lines = SIDE_BLOCKS[4]
-    right.append(text(F_COND_B, head, x, yy, 0, SIDE_TEXT, cap=cap + 0.4))
+    if head.startswith("~"):
+        right.append(text(F_COND, head[1:], x, yy, 0, SIDE_TEXT, cap=cap))
+    else:
+        right.append(text(F_COND_B, head, x, yy, 0, SIDE_ACCENT, cap=cap + 0.4))
     yy += lh
     for s in lines:
         f = F_COND_B if s.startswith("*") else F_COND
-        right.append(text(f, s.lstrip("*"), x, yy, 0, SIDE_TEXT, cap=cap, maxwidth=250))
+        right.append(text(f, s.lstrip("*"), x, yy, 0, SIDE_ACCENT if s.startswith("*") else SIDE_TEXT,
+                          cap=cap, maxwidth=250))
         yy += lh
     yy += 10
-    for lab in ["Batch No.:", "Mfg. Date:", "Exp. Date:", "Mfg. Lic. No.:"]:
-        right.append(text(F_COND_B, lab, x, yy + 14, 0, SIDE_TEXT, cap=cap))
+    for lab in ["Batch No.:", "Mfg. Date:", "Exp. Date:", TH["lic"]]:
+        right.append(text(F_COND_B, lab, x, yy + 14, 0, SIDE_ACCENT, cap=cap))
         right.append(f'<path d="M{x + 82},{n(yy + 16)} H{x + 240}" stroke="{SIDE_TEXT}" '
                      f'stroke-width="1" fill="none"/>')
         yy += 26

@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1" width="96mm" height="46mm" viewBox="-30 -30 960 460">
+<title>Flakon etiketkasi foni 90x40 mm</title>
+<defs>
+<linearGradient id="ef-wing" gradientUnits="userSpaceOnUse" x1="0" y1="400" x2="900" y2="0"><stop offset="0" stop-color="#381A72"/><stop offset="0.5" stop-color="#4A2390"/><stop offset="1" stop-color="#6C38B6"/></linearGradient>
+<linearGradient id="ef-old-pale" gradientUnits="userSpaceOnUse" x1="560" y1="0" x2="330" y2="260"><stop offset="0" stop-color="#E9DEF8"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/></linearGradient>
+<linearGradient id="ef-old-lb" gradientUnits="userSpaceOnUse" x1="0" y1="560" x2="500" y2="0"><stop offset="0" stop-color="#8E5CCF"/><stop offset="0.5" stop-color="#B591E6"/><stop offset="1" stop-color="#D9C6F4"/></linearGradient>
+<linearGradient id="ef-old-b1" gradientUnits="userSpaceOnUse" x1="0" y1="600" x2="540" y2="0"><stop offset="0" stop-color="#5A2CA8"/><stop offset="0.55" stop-color="#7A44C4"/><stop offset="1" stop-color="#A57BE0"/></linearGradient>
+<linearGradient id="ef-old-nv" gradientUnits="userSpaceOnUse" x1="120" y1="760" x2="600" y2="0"><stop offset="0" stop-color="#381A72"/><stop offset="0.5" stop-color="#45218A"/><stop offset="0.8" stop-color="#5428A0"/><stop offset="1" stop-color="#6633B2"/></linearGradient>
+<linearGradient id="ef-old-cr" gradientUnits="userSpaceOnUse" x1="640" y1="-40" x2="520" y2="640"><stop offset="0" stop-color="#CDB6F0"/><stop offset="0.5" stop-color="#EEE6FA"/><stop offset="1" stop-color="#F8F5FD"/></linearGradient>
+<linearGradient id="ef-old-gd" gradientUnits="userSpaceOnUse" x1="640" y1="190" x2="408" y2="652"><stop offset="0" stop-color="#22B3CC"/><stop offset="0.5" stop-color="#138FA6"/><stop offset="1" stop-color="#0D6F86"/></linearGradient>
+<linearGradient id="ef-old-gl" gradientUnits="userSpaceOnUse" x1="640" y1="236" x2="408" y2="652"><stop offset="0" stop-color="#8EE0EE"/><stop offset="1" stop-color="#4CC6DC"/></linearGradient>
+<linearGradient id="ef-old-rb" gradientUnits="userSpaceOnUse" x1="640" y1="330" x2="440" y2="840"><stop offset="0" stop-color="#D8F2F7"/><stop offset="0.45" stop-color="#7FD3E3"/><stop offset="1" stop-color="#1FA8C4"/></linearGradient>
+<linearGradient id="ef-old-pill" gradientUnits="userSpaceOnUse" x1="42" y1="0" x2="446" y2="0"><stop offset="0" stop-color="#3E1489"/><stop offset="0.55" stop-color="#3A2E92"/><stop offset="1" stop-color="#17A6BB"/></linearGradient>
+<linearGradient id="ef-old-logo-or" gradientUnits="userSpaceOnUse" x1="0" y1="110" x2="380" y2="0"><stop offset="0" stop-color="#5E1E98"/><stop offset="1" stop-color="#8A49BE"/></linearGradient>
+<linearGradient id="ef-old-logo-ye" gradientUnits="userSpaceOnUse" x1="200" y1="0" x2="590" y2="140"><stop offset="0" stop-color="#7C3FB4"/><stop offset="0.55" stop-color="#2F86B0"/><stop offset="1" stop-color="#38C4D4"/></linearGradient>
+<clipPath id="ef-markaz-clip"><rect x="300" y="-40" width="300" height="480"/></clipPath>
+<clipPath id="ef-bleed-clip"><rect x="-30" y="-30" width="960" height="460"/></clipPath>
+</defs>
+<g clip-path="url(#ef-bleed-clip)">
+<g id="FON">
+<rect x="-40" y="-40" width="980" height="480" fill="#FFFFFF"/>
+<path fill="url(#ef-wing)" d="M-40,330 C80,332 200,318 302,302 L302,440 L-40,440 Z"/>
+<path fill="#B08AE6" d="M-40,300 C80,302 200,290 302,274 L302,295 C200,309 80,320 -40,318 Z"/>
+<path fill="url(#ef-wing)" d="M598,440 C700,360 800,334 940,330 L940,440 Z"/>
+<path fill="#138FA6" d="M598,418 C700,336 800,310 940,306 L940,316 C800,320 700,346 610,424 Z"/>
+<path fill="#5CCDE0" d="M612,400 C710,322 805,296 940,292 L940,299 C805,304 712,330 622,405 Z"/>
+<path d="M840,84 L819.22,72 L819.22,48 L840,36 L860.78,48 L860.78,72 Z" fill="#E6DCF8" stroke="#CDBBEE" stroke-width="2"/>
+<path d="M872,120 L854.68,110 L854.68,90 L872,80 L889.32,90 L889.32,110 Z" fill="none" stroke="#CDBBEE" stroke-width="2"/>
+<path d="M230,72 L210.95,61 L210.95,39 L230,28 L249.05,39 L249.05,61 Z" fill="#EEE7FA" stroke="#CDBBEE" stroke-width="2"/>
+<path d="M262,100 L248.14,92 L248.14,76 L262,68 L275.86,76 L275.86,92 Z" fill="none" stroke="#CDBBEE" stroke-width="2"/>
+<g clip-path="url(#ef-markaz-clip)"><g transform="translate(300,0) scale(0.5)"><rect x="-40" y="-40" width="680" height="880" fill="#FFFFFF"/>
+<path fill="url(#ef-old-pale)" d="M330,-40 H520 V500 C470,330 380,140 330,-40 Z"/>
+<g id="ef-old-hex-yuqori">
+<path d="M452,126 L426.02,111 L426.02,81 L452,66 L477.98,81 L477.98,111 Z" fill="#E3D8F6" fill-opacity="0.9" stroke="#D3C2F0" stroke-width="2"/>
+<path d="M420,180 L402.68,170 L402.68,150 L420,140 L437.32,150 L437.32,170 Z" fill="none" fill-opacity="1" stroke="#D3C2F0" stroke-width="2"/>
+<path d="M470,238 L449.22,226 L449.22,202 L470,190 L490.78,202 L490.78,226 Z" fill="#EEE7FA" fill-opacity="1" stroke="#D3C2F0" stroke-width="2"/>
+<path d="M440,58 L424.41,49 L424.41,31 L440,22 L455.59,31 L455.59,49 Z" fill="none" fill-opacity="1" stroke="#D3C2F0" stroke-width="2"/>
+<path d="M585,322 L565.95,311 L565.95,289 L585,278 L604.05,289 L604.05,311 Z" fill="#ECE4F9" fill-opacity="1" stroke="#D3C2F0" stroke-width="2"/>
+</g>
+<g id="ef-old-lentalar">
+<path id="ef-old-och-fon" fill="url(#ef-old-cr)" d="M614,-40 C607.92,20.8 607.17,59.59 598,120 C590.42,169.96 583.45,201.29 570,250 C561.36,281.3 551.92,299.8 540,330 C529.12,357.57 521.58,374.71 510,402 C500.3,424.88 493.96,439.23 484,462 C472.68,487.88 465.26,504.1 454,530 C442.46,556.54 434.21,572.92 424,600 C416.71,619.34 410.99,631.54 408,652 C403.71,681.35 403.9,700.36 405,730 C406.56,771.94 411.2,798.2 415,840 L472,840 C475.8,809.6 475.23,789.88 482,760 C488.22,732.58 495.21,715.97 506,690 C515.78,666.46 524.75,652.87 536,630 C547.55,606.51 554.15,591.34 566,568 C579.24,541.93 588.18,525.77 602,500 C616.3,473.33 625.56,456.6 640,430 L640,-40 Z"/>
+<path id="ef-old-och-kok-lenta" fill="url(#ef-old-lb)" d="M496,-40 C489.92,51.2 487.38,108.9 480,200 C474.45,268.52 470.85,311.83 462,380 C457.91,411.48 459.5,433.26 446,462 C435.02,485.37 422.64,499.59 400,512 C365.21,531.06 339.25,536.25 300,542 C232.2,551.93 188.47,550.18 120,553 C59.24,555.5 20.8,554.86 -40,556 L-40,568 C24.98,566.86 66.06,567.59 131,565 C199.47,562.27 243.2,563.93 311,554 C350.25,548.25 376.21,543.06 411,524 C433.64,511.59 446.02,497.37 457,474 C470.5,445.26 468.91,423.48 473,392 C481.85,323.83 485.61,280.53 491,212 C498.53,116.34 500.92,55.76 507,-40 Z"/>
+<path id="ef-old-kok-lenta" fill="url(#ef-old-b1)" d="M518,-40 C511.92,61.08 509.7,125.03 502,226 C496.77,294.54 492.85,337.83 484,406 C479.91,437.48 481.5,459.26 468,488 C457.02,511.37 444.64,525.59 422,538 C387.21,557.06 361.25,562.25 322,568 C254.2,577.93 210.48,576.35 142,579 C72.88,581.67 29.16,580.86 -40,582 L-40,612 C5.6,611.24 34.45,612.2 80,610 C144.69,606.88 185.79,606.41 250,598 C296.26,591.94 326.29,588.33 370,572 C396.66,562.04 412.46,550.69 432,530 C452.14,508.68 458.59,490.08 472,464 C486.01,436.76 497.43,419.92 504,390 C519.64,318.82 523.08,272.54 530,200 C538.67,109.03 539.3,51.2 545,-40 Z"/>
+<path id="ef-old-toq-kok-lenta" fill="url(#ef-old-nv)" d="M545,-40 C539.3,51.2 538.67,109.03 530,200 C523.08,272.54 519.64,318.82 504,390 C497.43,419.92 486.01,436.76 472,464 C458.59,490.08 452.14,508.68 432,530 C412.46,550.69 396.66,562.04 370,572 C326.29,588.33 296.26,591.94 250,598 C185.79,606.41 144.69,606.88 80,610 C34.45,612.2 5.6,611.24 -40,612 L-40,840 L415,840 C411.2,798.2 406.56,771.94 405,730 C403.9,700.36 403.71,681.35 408,652 C410.99,631.54 416.71,619.34 424,600 C434.21,572.92 442.46,556.54 454,530 C465.26,504.1 472.68,487.88 484,462 C493.96,439.23 500.3,424.88 510,402 C521.58,374.71 529.12,357.57 540,330 C551.92,299.8 561.36,281.3 570,250 C583.45,201.29 590.42,169.96 598,120 C607.17,59.59 607.92,20.8 614,-40 Z"/>
+<path id="ef-old-och-kok-past" fill="url(#ef-old-rb)" d="M640,330 C624.8,358.12 615.56,376.08 600,404 C585.91,429.28 576.67,445.06 562,470 C546.27,496.74 536.48,513.72 520,540 C504.55,564.65 494.14,579.8 478,604 C463.73,625.4 451.34,636.92 440,660 C429.08,682.22 423,697.43 420,722 C414.56,766.52 418.76,795.16 418,840 L472,840 C475.8,809.6 475.23,789.88 482,760 C488.22,732.58 495.21,715.97 506,690 C515.78,666.46 524.75,652.87 536,630 C547.55,606.51 554.15,591.34 566,568 C579.24,541.93 588.18,525.77 602,500 C616.3,473.33 625.56,456.6 640,430 Z"/>
+<path id="ef-old-yashil-lenta" fill="url(#ef-old-gd)" d="M640,190 C621,224.2 609.18,245.9 590,280 C574.98,306.7 565.25,323.43 550,350 C538.65,369.79 530.9,381.96 520,402 C507.33,425.29 499.56,440.14 488,464 C475.99,488.79 469.08,504.78 458,530 C447.04,554.94 440.33,570.79 430,596 C421.33,617.16 416.36,630.72 408,652 L408,652 C424.72,632.24 438.08,621.82 452,600 C466.45,577.36 470.44,560.24 482,536 C494,510.84 501.24,494.78 514,470 C527.08,444.6 536.71,429.29 550,404 C560.28,384.44 565.53,371.45 576,352 C586.82,331.91 594.98,319.97 606,300 C619.3,275.89 627.08,260.32 640,236 Z"/>
+<path id="ef-old-och-yashil-lenta" fill="url(#ef-old-gl)" d="M640,236 C627.08,260.32 619.3,275.89 606,300 C594.98,319.97 586.82,331.91 576,352 C565.53,371.45 560.28,384.44 550,404 C536.71,429.29 527.08,444.6 514,470 C501.24,494.78 494,510.84 482,536 C470.44,560.24 466.45,577.36 452,600 C438.08,621.82 424.72,632.24 408,652 L408,652 C429.28,633.76 446.44,625.85 464,604 C481.25,582.53 485.24,564.4 498,540 C511.08,515 518.78,498.92 532,474 C545.38,448.76 554.51,433.18 568,408 C577.31,390.62 582.88,379.48 592,362 C601.12,344.52 607.03,333.56 616,316 C625.27,297.84 630.88,286.24 640,268 Z"/>
+</g>
+<g id="ef-old-hex-pastki">
+<path d="M560,638 L537.48,625 L537.48,599 L560,586 L582.52,599 L582.52,625 Z" fill="#CFDDF7" fill-opacity="0.95" stroke="#B5C9EE" stroke-width="2"/>
+<path d="M606,682 L586.95,671 L586.95,649 L606,638 L625.05,649 L625.05,671 Z" fill="none" fill-opacity="1" stroke="#B5C9EE" stroke-width="2"/>
+<path d="M568,746 L540.29,730 L540.29,698 L568,682 L595.71,698 L595.71,730 Z" fill="#C5D6F5" fill-opacity="0.9" stroke="#B5C9EE" stroke-width="2"/>
+<path d="M620,780 L602.68,770 L602.68,750 L620,740 L637.32,750 L637.32,770 Z" fill="#E0E8FA" fill-opacity="1" stroke="#B5C9EE" stroke-width="2"/>
+<path d="M530,796 L514.41,787 L514.41,769 L530,760 L545.59,769 L545.59,787 Z" fill="none" fill-opacity="1" stroke="#B5C9EE" stroke-width="2"/>
+<path d="M614,582 L600.14,574 L600.14,558 L614,550 L627.86,558 L627.86,574 Z" fill="#EEE7FA" fill-opacity="1" stroke="#B5C9EE" stroke-width="2"/>
+<path fill="none" stroke="#AFC3EC" stroke-width="2" d="M532,572 L560,612 L606,660 L568,714 L530,778"/>
+<circle cx="532" cy="572" r="5" fill="#A2B7E8"/>
+<circle cx="560" cy="612" r="5" fill="#A2B7E8"/>
+<circle cx="606" cy="660" r="5" fill="#A2B7E8"/>
+<circle cx="568" cy="714" r="5" fill="#A2B7E8"/>
+<circle cx="530" cy="778" r="5" fill="#A2B7E8"/>
+<circle cx="640" cy="700" r="5" fill="#A2B7E8"/>
+</g></g></g>
+</g>
+</g>
+</svg>

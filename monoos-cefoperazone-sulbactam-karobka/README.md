@@ -17,7 +17,6 @@ to'liq razvyortkasi (kesish va bukish chiziqlari bilan).
 | `4-panellar/` | Har bir panel to'liq holda: old, yon (tarkib), yon-2 (brend), yuqori va pastki qopqoq |
 | `5-flakon-etiketka/` | Flakon etiketkasi 90 × 40 mm: foni alohida va to'liq |
 | `6-razvyortka/` | Qutining to'liq razvyortkasi, bosmaxonaga beriladigan fayl |
-| `_manba-skript/` | Fayllarni qayta yaratuvchi skriptlar (o'lcham yoki matnni o'zgartirish uchun) |
 
 Har bir detal 3 xil formatda:
 - **SVG** — CorelDRAW / Illustrator'da tahrirlash uchun (qatlam va guruhlar nomlangan);
@@ -77,21 +76,5 @@ Google Fonts shriftlari ishlatilgan:
 
 ## Qayta yaratish (o'lcham yoki matnni o'zgartirish)
 
-`_manba-skript/build_box.py` boshida `W, D, H` (mm) va matnlar bor. Shriftlarni
-(`RobotoCondensed[wght].ttf`, `Roboto[wdth,wght].ttf`, `Montserrat[wght].ttf`)
-github.com/google/fonts dan yuklab, bitta papkaga qo'ying:
-
-```bash
-pip install fonttools uharfbuzz cairosvg
-```
-
-```bash
-python3 _manba-skript/build_box.py fonts .
-```
-
-```bash
-python3 _manba-skript/make_pdf.py .
-```
-
-PNG va 3D maket uchun (Node.js + Playwright kerak): `node _manba-skript/render.js . --png --dpi=300`
-va `node _manba-skript/mockup.js . 0-korinish/3d-maket.png`.
+Generator skriptlari umumiy papkada: [`../monoos-karobka-skript/`](../monoos-karobka-skript/).
+Bu karobka `cefoperazone` mahsuloti sifatida yaratiladi.
