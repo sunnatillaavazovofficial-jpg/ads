@@ -292,39 +292,39 @@ def hcurve(S, K, E, tS, tK, tE, k=0.4):
             (K, (K[0] + tK[0] * d2, K[1] + tK[1] * d2), (E[0] - tE[0] * d2, E[1] - tE[1] * d2), E)]
 
 
-def _perim(p):
+def _perim(p, b):
     x, y = p
-    if abs(y - BY0) < 1e-6:
-        return x - BX0
-    if abs(x - BX1) < 1e-6:
-        return (BX1 - BX0) + (y - BY0)
-    if abs(y - BY1) < 1e-6:
-        return (BX1 - BX0) + (BY1 - BY0) + (BX1 - x)
-    return 2 * (BX1 - BX0) + (BY1 - BY0) + (BY1 - y)
+    bx0, bx1, by0, by1 = b
+    if abs(y - by0) < 1e-6:
+        return x - bx0
+    if abs(x - bx1) < 1e-6:
+        return (bx1 - bx0) + (y - by0)
+    if abs(y - by1) < 1e-6:
+        return (bx1 - bx0) + (by1 - by0) + (bx1 - x)
+    return 2 * (bx1 - bx0) + (by1 - by0) + (by1 - y)
 
 
-_CORNERS = [(0, (BX0, BY0)), (BX1 - BX0, (BX1, BY0)),
-            ((BX1 - BX0) + (BY1 - BY0), (BX1, BY1)), (2 * (BX1 - BX0) + (BY1 - BY0), (BX0, BY1))]
-
-
-def _on_edge(p):
+def _on_edge(p, b):
     x, y = p
-    return min(abs(x - BX0), abs(x - BX1), abs(y - BY0), abs(y - BY1)) < 1e-6
+    return min(abs(x - b[0]), abs(x - b[1]), abs(y - b[2]), abs(y - b[3])) < 1e-6
 
 
-def _walk(p, q):
-    if not (_on_edge(p) and _on_edge(q)):
+def _walk(p, q, b):
+    if not (_on_edge(p, b) and _on_edge(q, b)):
         return []          # uchli (ichkarida tugaydigan) lenta
-    sp, sq = _perim(p), _perim(q)
-    return [c for s, c in sorted(_CORNERS, key=lambda t: -t[0]) if sq < s < sp]
+    bx0, bx1, by0, by1 = b
+    corners = [(0, (bx0, by0)), (bx1 - bx0, (bx1, by0)),
+               ((bx1 - bx0) + (by1 - by0), (bx1, by1)), (2 * (bx1 - bx0) + (by1 - by0), (bx0, by1))]
+    sp, sq = _perim(p, b), _perim(q, b)
+    return [c for s, c in sorted(corners, key=lambda t: -t[0]) if sq < s < sp]
 
 
-def ribbon(ca, cb):
-    """Ikki egri chiziq orasidagi lenta (yopiq kontur)."""
+def ribbon(ca, cb, b=(BX0, BX1, BY0, BY1)):
+    """Ikki egri chiziq orasidagi lenta (yopiq kontur). b - vylet bilan chegara."""
     d = [f"M{P(ca[0][0])}"] + [f"C{P(s[1], s[2], s[3])}" for s in ca]
-    d += [f"L{P(c)}" for c in _walk(ca[-1][3], cb[-1][3])] + [f"L{P(cb[-1][3])}"]
+    d += [f"L{P(c)}" for c in _walk(ca[-1][3], cb[-1][3], b)] + [f"L{P(cb[-1][3])}"]
     d += [f"C{P(s[2], s[1], s[0])}" for s in reversed(cb)]
-    d += [f"L{P(c)}" for c in _walk(cb[0][0], ca[0][0])] + ["Z"]
+    d += [f"L{P(c)}" for c in _walk(cb[0][0], ca[0][0], b)] + ["Z"]
     return " ".join(d)
 
 
@@ -363,54 +363,91 @@ def shift(pts, dx, dy):
 
 _C0 = [(496, -40), (480, 200), (462, 380), (446, 462), (400, 512), (300, 542), (120, 553), (-40, 556)]
 _TAPER = (408, 652)
-WAVE = {
-    "c0": spline(_C0),
-    "c1": spline(shift(_C0, 11, 12)),
-    "c2": spline(shift(_C0, 22, 26)),
-    "c3": spline([(545, -40), (530, 200), (504, 390), (472, 464), (432, 530), (370, 572), (250, 598),
+WAVE_PTS = {
+    "c0": _C0,
+    "c1": shift(_C0, 11, 12),
+    "c2": shift(_C0, 22, 26),
+    "c3": ([(545, -40), (530, 200), (504, 390), (472, 464), (432, 530), (370, 572), (250, 598),
                   (80, 610), (-40, 612)]),
-    "c4": spline([(614, -40), (598, 120), (570, 250), (540, 330), (510, 402), (484, 462), (454, 530),
+    "c4": ([(614, -40), (598, 120), (570, 250), (540, 330), (510, 402), (484, 462), (454, 530),
                   (424, 600), (408, 652), (405, 730), (415, 840)]),
-    "g0": spline([(640, 190), (590, 280), (550, 350), (520, 402), (488, 464), (458, 530), (430, 596),
+    "g0": ([(640, 190), (590, 280), (550, 350), (520, 402), (488, 464), (458, 530), (430, 596),
                   _TAPER]),
-    "g1": spline([(640, 236), (606, 300), (576, 352), (550, 404), (514, 470), (482, 536), (452, 600),
+    "g1": ([(640, 236), (606, 300), (576, 352), (550, 404), (514, 470), (482, 536), (452, 600),
                   _TAPER]),
-    "g2": spline([(640, 268), (616, 316), (592, 362), (568, 408), (532, 474), (498, 540), (464, 604),
+    "g2": ([(640, 268), (616, 316), (592, 362), (568, 408), (532, 474), (498, 540), (464, 604),
                   _TAPER]),
-    "c9": spline([(640, 330), (600, 404), (562, 470), (520, 540), (478, 604), (440, 660), (420, 722),
+    "c9": ([(640, 330), (600, 404), (562, 470), (520, 540), (478, 604), (440, 660), (420, 722),
                   (418, 840)]),
-    "c10": spline([(640, 430), (602, 500), (566, 568), (536, 630), (506, 690), (482, 760), (472, 840)]),
+    "c10": ([(640, 430), (602, 500), (566, 568), (536, 630), (506, 690), (482, 760), (472, 840)]),
 }
 
 
-def front_background(a):
-    """Old panel foni: to'lqin lentalar, oltiburchaklar. 600x800 (+40 vylet)."""
-    w = WAVE
-    out = ['<rect x="-40" y="-40" width="680" height="880" fill="#FFFFFF"/>']
-    pale = a.lin("pale", 560, 0, 330, 260, [(0, "#D5EAFA"), (1, "#FFFFFF", 0)])
-    out.append(f'<path fill="{pale}" d="M330,-40 H520 V500 C470,330 380,140 330,-40 Z"/>')
+class Fit:
+    """Old panel to'lqin geometriyasini boshqa o'lchamdagi panelga moslash.
+
+    fx, fy - 600x800 koordinatalardan yangi panelga bo'lakli-chiziqli (monoton) o'tkazish,
+    rs - oltiburchak radiusi koeffitsienti. Standart: o'zgarishsiz (600 x 800)."""
+
+    def __init__(self, xs=None, ys=None, w=600, h=800, rs=1.0):
+        self.w, self.h, self.rs = w, h, rs
+        self.fx = self._pw(xs) if xs else (lambda v: v)
+        self.fy = self._pw(ys) if ys else (lambda v: v)
+        self.bounds = (self.fx(-40), self.fx(640), self.fy(-40), self.fy(840))
+
+    @staticmethod
+    def _pw(pairs):
+        pairs = sorted(pairs)
+
+        def f(v):
+            for (a0, b0), (a1, b1) in zip(pairs, pairs[1:]):
+                if v <= a1:
+                    return b0 + (v - a0) * (b1 - b0) / (a1 - a0)
+            (a0, b0), (a1, b1) = pairs[-2], pairs[-1]
+            return b0 + (v - a0) * (b1 - b0) / (a1 - a0)
+        return f
+
+    def pt(self, x, y):
+        return (self.fx(x), self.fy(y))
+
+    def pts(self, lst):
+        return [self.pt(x, y) for x, y in lst]
+
+
+FIT0 = Fit()
+
+
+def front_background(a, fit=FIT0):
+    """Old panel foni: to'lqin lentalar, oltiburchaklar. 600x800 (+40 vylet).
+    fit - boshqa o'lchamdagi panel uchun moslash (Fit)."""
+    X, Y, rs = fit.fx, fit.fy, fit.rs
+    w = {k: spline(fit.pts(v)) for k, v in WAVE_PTS.items()}
+    x0, x1, y0, y1 = fit.bounds
+    out = [f'<rect x="{n(x0)}" y="{n(y0)}" width="{n(x1 - x0)}" height="{n(y1 - y0)}" fill="#FFFFFF"/>']
+    pale = a.lin("pale", X(560), Y(0), X(330), Y(260), [(0, "#D5EAFA"), (1, "#FFFFFF", 0)])
+    out.append(f'<path fill="{pale}" d="M{n(X(330))},{n(Y(-40))} H{n(X(520))} V{n(Y(500))} '
+               f'C{n(X(470))},{n(Y(330))} {n(X(380))},{n(Y(140))} {n(X(330))},{n(Y(-40))} Z"/>')
     hx = []
     for cx, cy, r, f, o in [(452, 96, 30, "#D6EAFA", 0.9), (420, 160, 20, "none", 1),
                             (470, 214, 24, "#E4F1FC", 1), (440, 40, 18, "none", 1),
                             (585, 300, 22, "#E2F0FC", 1)]:
-        hx.append(f'<path d="{hexagon(cx, cy, r)}" fill="{C(f)}" fill-opacity="{o}" '
-                  f'stroke="{C("#C3DEF4")}" stroke-width="2"/>')
+        hx.append(f'<path d="{hexagon(X(cx), Y(cy), r * rs)}" fill="{C(f)}" fill-opacity="{o}" '
+                  f'stroke="{C("#C3DEF4")}" stroke-width="{n(2 * rs)}"/>')
     out.append(group(f"{a.p}-hex-yuqori", "\n".join(hx)))
 
-
-    g_lb = a.lin("lb", 0, 560, 500, 0, [(0, "#5AA8E8"), (0.5, "#8CC8F2"), (1, "#C4E3F9")])
-    g_b1 = a.lin("b1", 0, 600, 540, 0, [(0, "#1E6ACB"), (0.55, "#2A86DD"), (1, "#69B6F0")])
-    g_nv = a.lin("nv", 120, 760, 600, 0, [(0, NAVY_DARK), (0.5, "#153B8E"), (0.8, "#1A50AC"),
-                                           (1, "#1F63C2")])
-    g_cr = a.lin("cr", 640, -40, 520, 640, [(0, "#A9D5F5"), (0.5, "#E1F0FC"), (1, "#F4F9FE")])
-    g_gd = a.lin("gd", 640, 190, 408, 652, [(0, "#3FA94E"), (0.5, G_DARK), (1, "#1A7F3E")])
-    g_gl = a.lin("gl", 640, 236, 408, 652, [(0, "#B8DC5C"), (1, "#7DBE3E")])
-    g_rb = a.lin("rb", 640, 330, 440, 840, [(0, "#D2E9FA"), (0.45, "#8EC6F2"), (1, "#3C8EDD")])
+    g_lb = a.lin("lb", X(0), Y(560), X(500), Y(0), [(0, "#5AA8E8"), (0.5, "#8CC8F2"), (1, "#C4E3F9")])
+    g_b1 = a.lin("b1", X(0), Y(600), X(540), Y(0), [(0, "#1E6ACB"), (0.55, "#2A86DD"), (1, "#69B6F0")])
+    g_nv = a.lin("nv", X(120), Y(760), X(600), Y(0), [(0, NAVY_DARK), (0.5, "#153B8E"), (0.8, "#1A50AC"),
+                                                      (1, "#1F63C2")])
+    g_cr = a.lin("cr", X(640), Y(-40), X(520), Y(640), [(0, "#A9D5F5"), (0.5, "#E1F0FC"), (1, "#F4F9FE")])
+    g_gd = a.lin("gd", X(640), Y(190), X(408), Y(652), [(0, "#3FA94E"), (0.5, G_DARK), (1, "#1A7F3E")])
+    g_gl = a.lin("gl", X(640), Y(236), X(408), Y(652), [(0, "#B8DC5C"), (1, "#7DBE3E")])
+    g_rb = a.lin("rb", X(640), Y(330), X(440), Y(840), [(0, "#D2E9FA"), (0.45, "#8EC6F2"), (1, "#3C8EDD")])
     bands = [("och-fon", "c4", "c10", g_cr), ("och-kok-lenta", "c0", "c1", g_lb),
              ("kok-lenta", "c2", "c3", g_b1), ("toq-kok-lenta", "c3", "c4", g_nv),
              ("och-kok-past", "c9", "c10", g_rb),
              ("yashil-lenta", "g0", "g1", g_gd), ("och-yashil-lenta", "g1", "g2", g_gl)]
-    lent = [f'<path id="{a.p}-{name}" fill="{fill}" d="{ribbon(w[ca], w[cb])}"/>'
+    lent = [f'<path id="{a.p}-{name}" fill="{fill}" d="{ribbon(w[ca], w[cb], fit.bounds)}"/>'
             for name, ca, cb, fill in bands]
     out.append(group(f"{a.p}-lentalar", "\n".join(lent)))
     # pastki o'ng burchak: oltiburchaklar va molekula
@@ -418,13 +455,13 @@ def front_background(a):
     for cx, cy, r, f, o in [(560, 612, 26, "#D3E8FA", 0.95), (606, 660, 22, "none", 1),
                             (568, 714, 32, "#C9E2F8", 0.9), (620, 760, 20, "#E1EFFC", 1),
                             (530, 778, 18, "none", 1), (614, 566, 16, "#E6F2FC", 1)]:
-        hx.append(f'<path d="{hexagon(cx, cy, r)}" fill="{C(f)}" fill-opacity="{o}" '
-                  f'stroke="{C("#B4D5F1")}" stroke-width="2"/>')
+        hx.append(f'<path d="{hexagon(X(cx), Y(cy), r * rs)}" fill="{C(f)}" fill-opacity="{o}" '
+                  f'stroke="{C("#B4D5F1")}" stroke-width="{n(2 * rs)}"/>')
     pts = [(532, 572), (560, 612), (606, 660), (568, 714), (530, 778)]
-    hx.append(f'<path fill="none" stroke="{C("#A9CFEF")}" stroke-width="2" d="M' +
-              " L".join(f"{x},{y}" for x, y in pts) + '"/>')
+    hx.append(f'<path fill="none" stroke="{C("#A9CFEF")}" stroke-width="{n(2 * rs)}" d="M' +
+              " L".join(f"{n(X(x))},{n(Y(y))}" for x, y in pts) + '"/>')
     for x, y in pts + [(640, 700)]:
-        hx.append(f'<circle cx="{x}" cy="{y}" r="5" fill="{C("#9CC8EC")}"/>')
+        hx.append(f'<circle cx="{n(X(x))}" cy="{n(Y(y))}" r="{n(5 * rs)}" fill="{C("#9CC8EC")}"/>')
     out.append(group(f"{a.p}-hex-pastki", "\n".join(hx)))
     return "\n".join(out)
 
