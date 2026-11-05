@@ -823,7 +823,8 @@ class SettingsDialog(QDialog):
         self.image_model.setToolTip("auto — hisobingizda ishlaydigan eng yangi modelni o'zi tanlaydi")
         irow.addWidget(self.image_model, 1)
         lay.addLayout(irow)
-        lay.addWidget(QLabel("Tayyor rasmlar saqlanadigan papka:"))
+        lay.addWidget(QLabel("Rasmlar saqlanadigan papka (ichida: Skrinshotlar, Yuqori sifat, "
+                             "AI rasmlar):"))
         drow = QHBoxLayout()
         self.save_dir = cfg.get("save_dir") or ""
         self.save_lbl = QLabel(self.save_dir or images_dir(cfg))
@@ -1041,8 +1042,52 @@ def open_images_dir(cfg: dict):
     QDesktopServices.openUrl(QUrl.fromLocalFile(images_dir(cfg)))
 
 
+# tanlangan papka ichidagi alohida papkalar
+SUBDIRS = {"shot": "Skrinshotlar", "hq": "Yuqori sifat", "ai": "AI rasmlar"}
+PICKER_SECONDS = 120          # oxirgi skrinshotlar oynasi shu vaqt ichida ishlaydi
+PICKER_MAX = 10
+
+
+def images_subdir(cfg: dict, kind: str) -> str:
+    root = images_dir(cfg)
+    path = os.path.join(root, SUBDIRS[kind])
+    try:
+        os.makedirs(path, exist_ok=True)
+        return path
+    except OSError:
+        return root
+
+
+def send_ctrl_v():
+    """Faol oynaga Ctrl+V yuboradi (Windows)."""
+    if sys.platform != "win32":
+        return
+    try:
+        import ctypes
+        u = ctypes.windll.user32
+        for vk in (0x10, 0xA0, 0xA1, 0x12):          # Shift/Alt bosilib qolgan bo'lsa — qo'yib yuboramiz
+            if u.GetAsyncKeyState(vk) & 0x8000:
+                u.keybd_event(vk, 0, 2, 0)
+        u.keybd_event(0x11, 0, 0, 0)
+        u.keybd_event(0x56, 0, 0, 0)
+        u.keybd_event(0x56, 0, 2, 0)
+        u.keybd_event(0x11, 0, 2, 0)
+    except Exception:
+        pass
+
+
 def stamp() -> str:
     return datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+
+
+def unique_path(folder: str, name: str, ext: str = ".png") -> str:
+    """Bir xil nomli fayl bor bo'lsa — _2, _3 ... qo'shadi (ustiga yozilmasin)."""
+    path = os.path.join(folder, name + ext)
+    n = 2
+    while os.path.exists(path):
+        path = os.path.join(folder, f"{name}_{n}{ext}")
+        n += 1
+    return path
 
 
 def image_to_png(img: QImage) -> bytes:
@@ -1184,16 +1229,20 @@ class EnhanceWorker(QThread):
 # PrintScreen va Win+Shift+S ni ushlash (Windows)
 # ---------------------------------------------------------------------------
 class KeyboardHook:
-    """PrintScreen yoki Win+Shift+S bosilganda Windows vositasi o'rniga shu dastur ishlaydi."""
-    VK_SNAPSHOT, VK_S = 0x2C, 0x53
-    WIN_KEYS, SHIFT_KEYS = (0x5B, 0x5C), (0x10, 0xA0, 0xA1)
+    """PrintScreen yoki Win+Shift+S — skrinshot; Ctrl+V+S yoki Ctrl+Shift+V — oxirgi
+    skrinshotlar oynasi (faqat oxirgi skrinshotdan keyin 2 daqiqa ichida)."""
+    VK_SNAPSHOT, VK_S, VK_V = 0x2C, 0x53, 0x56
+    WIN_KEYS, SHIFT_KEYS, CTRL_KEYS = (0x5B, 0x5C), (0x10, 0xA0, 0xA1), (0x11, 0xA2, 0xA3)
 
-    def __init__(self, callback):
+    def __init__(self, callback, picker_cb=None, picker_active=None):
         self.callback = callback
+        self.picker_cb = picker_cb
+        self.picker_active = picker_active or (lambda: False)
+        self.router = None            # oxirgi skrinshotlar oynasi ochiq bo'lsa — tugmalar unga
         self.hook = None
         self.down = set()
         self.snap_down = False
-        self.s_eaten = False
+        self.eaten = set()
         if sys.platform != "win32":
             return
         try:
@@ -1251,6 +1300,20 @@ class KeyboardHook:
                         self.down.add(vk)
                     elif is_up:
                         self.down.discard(vk)
+                    if is_up and vk in self.eaten:
+                        self.eaten.discard(vk)
+                        return 1
+                    if self.router is not None and is_down and self.router(vk):
+                        self.eaten.add(vk)
+                        return 1
+                    ctrl = any(k in self.down for k in self.CTRL_KEYS)
+                    shift = any(k in self.down for k in self.SHIFT_KEYS)
+                    if is_down and ctrl and self.picker_cb and self.picker_active() and (
+                            (vk == self.VK_V and shift) or
+                            (vk == self.VK_S and self.VK_V in self.down)):
+                        self.eaten.add(vk)
+                        QTimer.singleShot(0, self.picker_cb)
+                        return 1
                     if vk == self.VK_SNAPSHOT:
                         if is_down and not self.snap_down:
                             self.snap_down = True
@@ -1260,17 +1323,12 @@ class KeyboardHook:
                                 self._fire()
                             self.snap_down = False
                         return 1
-                    if vk == self.VK_S:
-                        win = any(k in self.down for k in self.WIN_KEYS)
-                        shift = any(k in self.down for k in self.SHIFT_KEYS)
-                        if is_down and win and shift:
-                            self.s_eaten = True
-                            self._mask_start_menu()
-                            self._fire()
-                            return 1
-                        if is_up and self.s_eaten:
-                            self.s_eaten = False
-                            return 1
+                    if vk == self.VK_S and is_down and shift and any(
+                            k in self.down for k in self.WIN_KEYS):
+                        self.eaten.add(vk)
+                        self._mask_start_menu()
+                        self._fire()
+                        return 1
         except Exception:
             pass
         return self.user32.CallNextHookEx(self.hook, ncode, wparam, lparam)
@@ -2003,9 +2061,9 @@ class EditorWindow(CardWindow):
         if result.isNull():
             self.status.setText("Javob rasm emas — qayta urinib ko'ring.")
             return
-        st = stamp()
-        out = images_dir(self.ctrl.cfg)
-        res_path = os.path.join(out, f"AI_{st}.png")
+        out = images_subdir(self.ctrl.cfg, "ai")
+        res_path = unique_path(out, f"AI_{stamp()}")
+        st = os.path.splitext(os.path.basename(res_path))[0][3:]
         try:
             with open(res_path, "wb") as f:
                 f.write(png)
@@ -2113,6 +2171,7 @@ class ShotToast(QWidget):
     def __init__(self, ctrl, img: QImage, path: str, screen_geo: QRect):
         super().__init__(None, Qt.Tool | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
         self.ctrl, self.img, self.path = ctrl, img, path
+        self.entry = None
         self.enhanced_path = ""
         self.worker = None
         self.s = s = SCALES.get(ctrl.cfg.get("size"), 1.0)
@@ -2212,7 +2271,8 @@ class ShotToast(QWidget):
         self.img = img
         QGuiApplication.clipboard().setImage(img)
         try:
-            self.enhanced_path = os.path.join(images_dir(self.ctrl.cfg), f"Skrinshot_{stamp()}_sifatli.png")
+            self.enhanced_path = unique_path(images_subdir(self.ctrl.cfg, "hq"),
+                                             f"Sifatli_{stamp()}")
             with open(self.enhanced_path, "wb") as f:
                 f.write(png)
             saved = " va saqlandi"
@@ -2221,6 +2281,8 @@ class ShotToast(QWidget):
             saved = ""
         self.thumb.setPixmap(QPixmap.fromImage(img).scaled(self.thumb.size(), Qt.KeepAspectRatio,
                                                            Qt.SmoothTransformation))
+        if self.entry is not None:
+            self.ctrl.update_shot(self.entry, img, self.enhanced_path)
         self.title.setText("Sifati oshirildi ✓")
         self.sub.setText(f"{w} × {h} px  ·  nusxalandi{saved}")
         self.question.setText("Ctrl+V bilan joylashtiring.")
@@ -2259,6 +2321,239 @@ class ShotToast(QWidget):
         if self.worker is not None and self.worker.isRunning():
             self.worker.wait(5000)
         self.ctrl.forget(self)
+        super().closeEvent(e)
+
+
+# ---------------------------------------------------------------------------
+# Oxirgi 10 ta skrinshot oynasi (Ctrl+V+S / Ctrl+Shift+V)
+# ---------------------------------------------------------------------------
+class ShotTile(QWidget):
+    def __init__(self, picker, idx, entry, w, h):
+        super().__init__()
+        self.picker, self.idx, self.entry = picker, idx, entry
+        self.setFixedSize(w, h)
+        self.setCursor(Qt.PointingHandCursor)
+        self.setMouseTracking(True)
+
+    def paintEvent(self, e):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        p.setRenderHint(QPainter.SmoothPixmapTransform)
+        r = QRectF(self.rect()).adjusted(3, 3, -3, -3)
+        cur = self.picker.idx == self.idx
+        marked = self.idx in self.picker.marked
+        path = QPainterPath()
+        path.addRoundedRect(r, 12, 12)
+        p.fillPath(path, QColor("#F1F3F7"))
+        pm = self.entry["thumb"]
+        tw, th = pm.width() / pm.devicePixelRatio(), pm.height() / pm.devicePixelRatio()
+        sc = min((r.width() - 10) / tw, (r.height() - 10) / th, 1.0)
+        dw, dh = tw * sc, th * sc
+        p.save()
+        p.setClipPath(path)
+        p.drawPixmap(QRectF(r.center().x() - dw / 2, r.center().y() - dh / 2, dw, dh), pm,
+                     QRectF(0, 0, pm.width(), pm.height()))
+        p.restore()
+        accent = QColor(self.picker.accent)
+        if cur or marked:
+            p.setPen(QPen(accent, 3))
+            p.setBrush(Qt.NoBrush)
+            p.drawRoundedRect(r, 12, 12)
+        # raqam
+        badge = QRectF(r.left() + 6, r.top() + 6, 22, 22)
+        p.setPen(Qt.NoPen)
+        p.setBrush(QColor(17, 24, 39, 200))
+        p.drawRoundedRect(badge, 11, 11)
+        f = QFont("Segoe UI")
+        f.setPixelSize(12)
+        f.setBold(True)
+        p.setFont(f)
+        p.setPen(QColor("#FFFFFF"))
+        p.drawText(badge, Qt.AlignCenter, str((self.idx + 1) % 10))
+        if marked:
+            ck = QRectF(r.right() - 28, r.top() + 6, 22, 22)
+            p.setPen(Qt.NoPen)
+            p.setBrush(accent)
+            p.drawEllipse(ck)
+            p.setPen(QPen(QColor(accent_text(self.picker.accent)), 2.4, Qt.SolidLine, Qt.RoundCap,
+                          Qt.RoundJoin))
+            p.drawPolyline(QPolygonF([QPointF(ck.left() + 6, ck.center().y()),
+                                      QPointF(ck.left() + 10, ck.bottom() - 7),
+                                      QPointF(ck.right() - 5, ck.top() + 7)]))
+        p.end()
+
+    def enterEvent(self, e):
+        self.picker.set_idx(self.idx)
+
+    def mousePressEvent(self, e):
+        if e.button() == Qt.LeftButton:
+            if e.modifiers() & Qt.ControlModifier:
+                self.picker.toggle(self.idx)
+            else:
+                self.picker.paste([self.idx])
+        elif e.button() == Qt.RightButton:
+            self.picker.toggle(self.idx)
+
+
+class RecentPicker(QWidget):
+    COLS = 5
+
+    def __init__(self, ctrl, shots, no_focus):
+        flags = Qt.Tool | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint
+        if no_focus:
+            flags |= Qt.WindowDoesNotAcceptFocus
+        super().__init__(None, flags)
+        self.ctrl, self.shots = ctrl, list(shots)      # eng yangisi birinchi
+        self.idx = 0
+        self.marked = set()
+        self.done = False
+        self.s = s = SCALES.get(ctrl.cfg.get("size"), 1.0)
+        self.accent = ctrl.cfg.get("color", C_ACCENT)
+        self.setAttribute(Qt.WA_TranslucentBackground)
+        self.setAttribute(Qt.WA_DeleteOnClose)
+        if no_focus:
+            self.setAttribute(Qt.WA_ShowWithoutActivating)
+
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(18, 18, 18, 18)
+        card = QFrame()
+        card.setObjectName("card")
+        shadow(card, 44, 14, 55)
+        outer.addWidget(card)
+        lay = QVBoxLayout(card)
+        lay.setContentsMargins(int(18 * s), int(14 * s), int(14 * s), int(14 * s))
+        lay.setSpacing(int(10 * s))
+
+        top = QHBoxLayout()
+        ic = QLabel()
+        ic.setPixmap(svg_pixmap("camera", self.accent, int(22 * s)))
+        top.addWidget(ic)
+        t = QLabel("Oxirgi skrinshotlar")
+        t.setObjectName("title")
+        top.addWidget(t)
+        top.addStretch()
+        self.left_lbl = QLabel()
+        self.left_lbl.setObjectName("muted")
+        top.addWidget(self.left_lbl)
+        x = card_btn("close", "Yopish (Esc)", s)
+        x.clicked.connect(self.close)
+        top.addWidget(x)
+        lay.addLayout(top)
+
+        grid = QGridLayout()
+        grid.setSpacing(int(8 * s))
+        tw, th = int(176 * s), int(118 * s)
+        self.tiles = []
+        for i, e in enumerate(self.shots):
+            tile = ShotTile(self, i, e, tw, th)
+            grid.addWidget(tile, i // self.COLS, i % self.COLS)
+            self.tiles.append(tile)
+        lay.addLayout(grid)
+
+        hint = QLabel("Bosing — shu rasm joylanadi  ·  ← → ↑ ↓ — tanlash  ·  Bo'sh joy / o'ng tugma — "
+                      "belgilash  ·  Enter — belgilanganlar (yo'q bo'lsa hammasi)  ·  1–0 — raqam "
+                      "bo'yicha  ·  Esc — yopish")
+        hint.setObjectName("muted")
+        hint.setWordWrap(True)
+        lay.addWidget(hint)
+        row = QHBoxLayout()
+        row.addStretch()
+        self.one_btn = QPushButton("Tanlanganini joylash")
+        self.one_btn.clicked.connect(lambda: self.paste([self.idx]))
+        self.all_btn = QPushButton("Hammasini joylash  (Enter)")
+        self.all_btn.setObjectName("primary")
+        self.all_btn.clicked.connect(self.paste_enter)
+        for b in (self.one_btn, self.all_btn):
+            b.setCursor(Qt.PointingHandCursor)
+            row.addWidget(b)
+        lay.addLayout(row)
+
+        self.tick = QTimer(self)
+        self.tick.timeout.connect(self._update_left)
+        self.tick.start(1000)
+        self.idle = QTimer(self)
+        self.idle.setSingleShot(True)
+        self.idle.timeout.connect(self.close)
+        self.idle.start(30000)
+        self._update_left()
+        self._update_buttons()
+
+        self.adjustSize()
+        scr = QGuiApplication.screenAt(QCursor.pos()) or QGuiApplication.primaryScreen()
+        g = scr.availableGeometry()
+        self.move(g.center().x() - self.width() // 2, g.center().y() - self.height() // 2)
+
+    def _update_left(self):
+        left = max(0, int(PICKER_SECONDS - (time.monotonic() - self.ctrl.last_shot_time)))
+        self.left_lbl.setText(f"faol: {left // 60}:{left % 60:02d}  ·  {len(self.shots)} ta")
+
+    def _update_buttons(self):
+        n = len(self.marked)
+        self.all_btn.setText(f"Belgilangan {n} tasini joylash  (Enter)" if n
+                             else "Hammasini joylash  (Enter)")
+
+    def set_idx(self, i):
+        if 0 <= i < len(self.shots) and i != self.idx:
+            self.idx = i
+            for t in self.tiles:
+                t.update()
+
+    def move_by(self, d):
+        self.idle.start(30000)
+        self.set_idx(max(0, min(len(self.shots) - 1, self.idx + d)))
+
+    def toggle(self, i=None):
+        self.idle.start(30000)
+        i = self.idx if i is None else i
+        self.marked.symmetric_difference_update({i})
+        self.tiles[i].update()
+        self._update_buttons()
+
+    def paste_enter(self):
+        if self.marked:
+            idxs = sorted(self.marked, reverse=True)          # eskisidan yangisiga
+        else:
+            idxs = list(range(len(self.shots) - 1, -1, -1))
+        self.paste(idxs)
+
+    def paste(self, idxs):
+        if self.done:
+            return
+        self.done = True
+        imgs = [self.shots[i]["img"] for i in idxs if 0 <= i < len(self.shots)]
+        self.close()
+        self.ctrl.paste_images(imgs)
+
+    def handle_key(self, vk):
+        """Klaviatura tutqichidan chaqiriladi: True — tugma shu oynaga tegishli."""
+        if self.done or not self.isVisible():
+            return False
+        acts = {0x25: lambda: self.move_by(-1), 0x27: lambda: self.move_by(1),
+                0x26: lambda: self.move_by(-self.COLS), 0x28: lambda: self.move_by(self.COLS),
+                0x20: self.toggle, 0x0D: self.paste_enter, 0x1B: self.close}
+        for d in range(10):
+            idx = (d - 1) % 10
+            if idx < len(self.shots):
+                acts[0x30 + d] = (lambda k=idx: self.paste([k]))
+                acts[0x60 + d] = (lambda k=idx: self.paste([k]))
+        fn = acts.get(vk)
+        if fn is None:
+            return False
+        QTimer.singleShot(0, fn)
+        return True
+
+    def keyPressEvent(self, e):
+        k = e.key()
+        m = {Qt.Key_Left: 0x25, Qt.Key_Right: 0x27, Qt.Key_Up: 0x26, Qt.Key_Down: 0x28,
+             Qt.Key_Space: 0x20, Qt.Key_Return: 0x0D, Qt.Key_Enter: 0x0D, Qt.Key_Escape: 0x1B}
+        vk = m.get(k)
+        if vk is None and Qt.Key_0 <= k <= Qt.Key_9:
+            vk = 0x30 + (k - Qt.Key_0)
+        if vk is None or not self.handle_key(vk):
+            super().keyPressEvent(e)
+
+    def closeEvent(self, e):
+        self.ctrl.picker_closed(self)
         super().closeEvent(e)
 
 
@@ -3009,12 +3304,16 @@ class Controller:
         self.capturing = False
         self.overlay = None
         self.capture_mode = "shot"
+        self.shots = []              # oxirgi 10 ta skrinshot (eng yangisi birinchi)
+        self.last_shot_time = -1e9
+        self.picker = None
 
         self.tray = QSystemTrayIcon(QIcon(app_icon()))
         self.tray.setToolTip(f"{APP_NAME} — skrinshot: PrintScreen")
         menu = QMenu()
         menu.addAction("Ko'rsatish", lambda: self.win and self.win.bring_front())
         menu.addAction("Skrinshot olish", lambda: self.start_capture("shot"))
+        menu.addAction("Oxirgi skrinshotlar", lambda: self.open_picker(from_hook=False))
         menu.addAction("AI rasm (skrinshotdan)", lambda: self.start_capture("ai"))
         menu.addAction("AI rasm (fayldan)", self.open_file)
         menu.addSeparator()
@@ -3054,7 +3353,9 @@ class Controller:
             self.hook.unhook()
             self.hook = None
         if self.cfg.get("hook_keys", True):
-            self.hook = KeyboardHook(lambda: self.start_capture("shot"))
+            self.hook = KeyboardHook(lambda: self.start_capture("shot"),
+                                     lambda: self.open_picker(from_hook=True),
+                                     self.picker_active)
             windows_snip_key(self.cfg, True)      # Windows vositasi PrintScreen'ni olmasin
         else:
             windows_snip_key(self.cfg, False)     # avvalgi holatiga qaytaramiz
@@ -3116,23 +3417,91 @@ class Controller:
         if self.capture_mode == "ai":
             self.open_editor(img)
             return
-        # oddiy skrinshot: nusxalash + saqlash, keyin so'rash
+        # oddiy skrinshot: nusxalash (Ctrl+V) + saqlash, keyin so'rash
         QGuiApplication.clipboard().setImage(img)
         path = ""
         if self.cfg.get("shot_autosave", True):
             try:
-                path = os.path.join(images_dir(self.cfg), f"Skrinshot_{stamp()}.png")
+                path = unique_path(images_subdir(self.cfg, "shot"), f"Skrinshot_{stamp()}")
                 if not img.save(path):
                     path = ""
             except Exception:
                 path = ""
+        entry = self.add_shot(img, path)
         if self.cfg.get("shot_ask", True):
             scr = QGuiApplication.screenAt(screen_geo.center()) if screen_geo else None
             g = (scr or QGuiApplication.primaryScreen()).availableGeometry()
             t = ShotToast(self, img, path, g)
+            t.entry = entry
             self.windows.append(t)
             t.show()
             t.raise_()
+
+    # ---------------- oxirgi skrinshotlar ----------------
+    def add_shot(self, img, path):
+        thumb = QPixmap.fromImage(img.scaled(400, 260, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+        entry = {"img": img, "path": path, "thumb": thumb}
+        self.shots.insert(0, entry)
+        del self.shots[PICKER_MAX:]
+        self.last_shot_time = time.monotonic()
+        return entry
+
+    def update_shot(self, entry, img, path):
+        """Sifati oshirilgan bo'lsa — ro'yxatda yangisi turadi."""
+        if entry in self.shots:
+            entry["img"] = img
+            entry["path"] = path or entry["path"]
+            entry["thumb"] = QPixmap.fromImage(img.scaled(400, 260, Qt.KeepAspectRatio,
+                                                          Qt.SmoothTransformation))
+
+    def picker_active(self):
+        return bool(self.shots) and time.monotonic() - self.last_shot_time < PICKER_SECONDS
+
+    def open_picker(self, from_hook=True):
+        if self.capturing or not self.shots:
+            return
+        if self.picker is not None:
+            self.picker.close()
+            return
+        no_focus = from_hook and self.hook is not None and self.hook.ok
+        self.picker = RecentPicker(self, self.shots, no_focus)
+        if no_focus:
+            self.hook.router = self.picker.handle_key
+        self.picker.show()
+        self.picker.raise_()
+        if not no_focus:
+            self.picker.activateWindow()
+            self.picker.setFocus()
+
+    def picker_closed(self, picker):
+        if self.picker is picker:
+            self.picker = None
+        if self.hook is not None:
+            self.hook.router = None
+
+    def paste_images(self, imgs):
+        """Rasmlarni faol oynaga ketma-ket joylaydi (har biri: buferga + Ctrl+V)."""
+        imgs = [i for i in imgs if i is not None and not i.isNull()]
+        if not imgs:
+            return
+        cb = QGuiApplication.clipboard()
+
+        def finish():
+            if self.shots:                       # Ctrl+V yana oxirgi skrinshotni joylasin
+                cb.setImage(self.shots[0]["img"])
+
+        if sys.platform != "win32":
+            cb.setImage(imgs[-1])
+            return
+
+        def step(i=0):
+            if i >= len(imgs):
+                QTimer.singleShot(400, finish)
+                return
+            cb.setImage(imgs[i])
+            QTimer.singleShot(120, lambda: (send_ctrl_v(),
+                                            QTimer.singleShot(450, lambda: step(i + 1))))
+        QTimer.singleShot(180, step)
 
     def open_file(self):
         fn, _ = QFileDialog.getOpenFileName(None, "Rasmni tanlang", "",
@@ -3179,6 +3548,8 @@ class Controller:
         save_config(self.cfg)
         if self.hook is not None:
             self.hook.unhook()
+        if self.picker is not None:
+            self.picker.close()
         windows_snip_key(self.cfg, False)         # dastur yopilsa — Windows vositasi qaytadi
         self.hotkey.unregister()
         self.tray.hide()

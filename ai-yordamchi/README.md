@@ -22,6 +22,13 @@ Barcha javoblar **oddiy matn** bo'lib chiqadi: emoji va ortiqcha izohlarsiz.
 - **Oddiy skrinshot:** joyni belgilaysiz (`Enter` butun ekranni oladi, `Esc` bekor qiladi). Rasm darhol **nusxalanadi** (`Ctrl+V` bilan joylashtirasiz) va **tanlangan papkaga saqlanadi**. Keyin pastda kichik oyna chiqadi:
   - **"Sifatini oshiraymi?"** "Ha" desangiz, rasm 2 barobar kattalashtiriladi va tiniqlashtiriladi (bepul, kompyuterda bajariladi), so'ng nusxalanib saqlanadi;
   - **AI rasm** tugmasi skrinshotni AI tahrirlash oynasida ochadi.
+- **Ctrl+V** oxirgi skrinshotni joylaydi.
+- **Ctrl+V+S** yoki **Ctrl+Shift+V** **oxirgi 10 ta skrinshot** oynasini ochadi. Bu faqat oxirgi skrinshotdan keyin **2 daqiqa** ishlaydi, keyin o'chadi.
+  - rasmni bossangiz yoki uning raqamini (1–0) bossangiz, shu rasm joylanadi;
+  - **← → ↑ ↓** bilan tanlaysiz, **bo'sh joy** yoki o'ng tugma bilan belgilaysiz;
+  - **Enter** belgilanganlarni, hech narsa belgilanmagan bo'lsa **hammasini** ketma-ket joylaydi;
+  - **Esc** oynani yopadi.
+- Rasmlar tanlangan papka ichida **alohida papkalarda** saqlanadi: `Skrinshotlar`, `Yuqori sifat`, `AI rasmlar`.
 - **AI rasm (✦ tugmasi):** skrinshot olingach, tahrirlash oynasi ochiladi:
   - qalam, marker, strelka, to'rtburchak, doira, **matn yozish**; 6 rang, 3 qalinlik; orqaga/oldinga;
   - chizilgan belgilar AI uchun **ko'rsatma** bo'ladi, natijada esa ko'rinmaydi;
