@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="6750mm" height="2000mm" viewBox="0 0 6750 2000">
+<title>BIG LIFE banner 675x200 sm</title>
+<defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f3ebe0"/><stop offset="1" stop-color="#e7d9c6"/></linearGradient><linearGradient id="wall" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e9dcca"/><stop offset="1" stop-color="#dccbb4"/></linearGradient></defs>
+<g id="FON">
+<rect width="6750" height="2000" fill="url(#bg)"/>
+<path d="M1215.0,0 L1775.0,0 L675.0,2000 L115.0,2000 Z" fill="#ffffff" opacity="0.35"/>
+<path d="M2835.0,0 L3395.0,0 L2295.0,2000 L1735.0,2000 Z" fill="#ffffff" opacity="0.25"/>
+<path d="M4725.0,0 L5285.0,0 L4185.0,2000 L3625.0,2000 Z" fill="#ffffff" opacity="0.3"/>
+<path d="M0,1200.0 L2025.0,1320.0 L4185.0,1440.0 L6750,1400.0 L6750,2000 L0,2000 Z" fill="url(#wall)"/>
+<path d="M0,1200.0 L2025.0,1320.0 L4185.0,1440.0 L6750,1400.0" fill="none" stroke="#f7f1e8" stroke-width="12.00"/>
+</g>
+<g id="DEKOR_CHIZIQLAR" fill="none" stroke="#cbb497" stroke-width="12.00" stroke-linecap="round">
+<path d="M6750,360.0 L5968.8,360.0 C5728.8,360.0 5668.8,1051.4 5528.8,1231.4 C5408.8,1371.4 5168.8,1411.4 4968.8,1411.4 L2770.0,1411.4 A55.0,55.0 0 0 0 2770.0,1521.4 L5068.8,1521.4 C5328.8,1521.4 5448.8,1601.4 5528.8,1557.2"/>
+<path d="M6750,480.0 L6068.8,480.0 C5868.8,480.0 5808.8,1091.4 5668.8,1271.4"/>
+</g>
+<g id="ODAM_RASMLARI">
+<g id="CHAP_MODEL">
+<rect x="101.2" y="0.0" width="1120.0" height="2000.0" fill="#d9c8b2" fill-opacity="0.35" stroke="#a88d6c" stroke-width="6.00" stroke-dasharray="40.0,24.0"/>
+<text x="661.2" y="840.0" text-anchor="middle" font-family="Arial" font-size="70.0" fill="#a88d6c">MODEL RASMI</text>
+<text x="661.2" y="931.0" text-anchor="middle" font-family="Arial" font-size="49.0" fill="#a88d6c">(PowerClip ichiga)</text>
+</g>
+<g id="ONG_MODEL">
+<rect x="5528.8" y="0.0" width="1120.0" height="2000.0" fill="#d9c8b2" fill-opacity="0.35" stroke="#a88d6c" stroke-width="6.00" stroke-dasharray="40.0,24.0"/>
+<text x="6088.8" y="840.0" text-anchor="middle" font-family="Arial" font-size="70.0" fill="#a88d6c">MODEL RASMI</text>
+<text x="6088.8" y="931.0" text-anchor="middle" font-family="Arial" font-size="49.0" fill="#a88d6c">(PowerClip ichiga)</text>
+</g>
+</g>
+<g id="LOGO" fill="#4a2414">
+<path id="LOGO_BELGI" transform="translate(3155.00,164.96) scale(3.8824)" d="M0,34 L50,28 C82,24 102,14 118,0 L170,0 C148,32 116,50 72,50 L0,50 Z M0,62 L92,62 C124,62 142,86 136,117 L100,117 C104,94 94,80 72,80 L8,80 Z"/>
+<g id="BIG_LIFE" transform="translate(2275.00,705.83) scale(3.4652)"><path transform="translate(0.00,0) scale(1.12,1)" d="M0,0 H66 C80,0 88,10 88,24 C88,36 83,44 76,48 C86,52 92,62 92,75 C92,91 82,100 66,100 H0 Z M22,18 V40 H60 C64,40 66,36 66,29 C66,22 64,18 60,18 Z M22,58 V82 H62 C67,82 70,78 70,70 C70,62 67,58 62,58 Z"/>
+<path transform="translate(115.04,0) scale(1.12,1)" d="M0,0 H22 V100 H0 Z"/>
+<path transform="translate(151.68,0) scale(1.12,1)" d="M20,0 H90 V20 H26 C23,20 22,21 22,24 V76 C22,79 23,80 26,80 H70 V64 H46 V46 H92 V80 C92,92 84,100 72,100 H20 C8,100 0,92 0,80 V20 C0,8 8,0 20,0 Z"/>
+<path transform="translate(298.72,0) scale(1.12,1)" d="M0,0 H22 V80 H80 V100 H0 Z"/>
+<path transform="translate(400.32,0) scale(1.12,1)" d="M0,0 H22 V100 H0 Z"/>
+<path transform="translate(436.96,0) scale(1.12,1)" d="M0,0 H82 V20 H22 V40 H72 V60 H22 V100 H0 Z"/>
+<path transform="translate(540.80,0) scale(1.12,1)" d="M0,0 H84 V20 H22 V40 H74 V60 H22 V80 H84 V100 H0 Z"/></g>
+<text id="ALWAYS_FORWARD" x="3422.7" y="1291.4" text-anchor="middle" font-family="Arial" font-size="104.0" letter-spacing="95.3">ALWAYS FORWARD</text>
+</g>
+<g id="KONTAKT_PANEL">
+<rect x="189.0" y="1557.2" width="6372.0" height="352.8" rx="77.6" fill="#f5efe6" fill-opacity="0.93"/>
+<circle cx="836.5" cy="1733.6" r="96.6" fill="#4a2414"/>
+<path transform="translate(836.5,1733.6) scale(6.9000)" d="M-4.6,-7.2 C-5.4,-8 -6.6,-8 -7.3,-7.3 L-8.6,-6 C-10,-4.6 -9.4,-0.6 -4.9,3.9 C-0.4,8.4 3.6,9 5,7.6 L6.3,6.3 C7,5.6 7,4.4 6.2,3.6 L4.4,1.8 C3.6,1 2.4,1.1 1.7,1.8 L0.9,2.6 C-0.6,1.9 -2.6,-0.1 -3.3,-1.6 L-2.5,-2.4 C-1.8,-3.1 -1.8,-4.3 -2.6,-5.1 Z" fill="#ffffff" fill-rule="evenodd"/>
+<text x="991.0" y="1712.6" font-family="Arial" font-weight="bold" font-size="84.0" fill="#4a2414">+998 95 092 55 50</text>
+<text x="991.0" y="1817.6" font-family="Arial" font-weight="bold" font-size="84.0" fill="#4a2414">+998 94 411 11 11</text>
+<circle cx="2733.7" cy="1733.6" r="96.6" fill="#4a2414"/>
+<path transform="translate(2733.7,1733.6) scale(6.9000)" d="M0,9 C-4,4 -7,0.5 -7,-3 C-7,-7 -3.9,-10 0,-10 C3.9,-10 7,-7 7,-3 C7,0.5 4,4 0,9 Z M0,-6 C-1.7,-6 -3,-4.7 -3,-3 C-3,-1.3 -1.7,0 0,0 C1.7,0 3,-1.3 3,-3 C3,-4.7 1.7,-6 0,-6 Z" fill="#ffffff" fill-rule="evenodd"/>
+<text x="2888.2" y="1712.6" font-family="Arial" font-weight="normal" font-size="84.0" fill="#4a2414">Toshkent, Abu Saxiy Center,</text>
+<text x="2888.2" y="1817.6" font-family="Arial" font-weight="normal" font-size="84.0" fill="#4a2414">1-qavat, C-22</text>
+<line x1="2313.0" y1="1627.8" x2="2313.0" y2="1839.4" stroke="#b89a78" stroke-width="6.00"/>
+<circle cx="5061.8" cy="1733.6" r="96.6" fill="#4a2414"/>
+<path transform="translate(5061.8,1733.6) scale(6.9000)" d="M0,9 C-4,4 -7,0.5 -7,-3 C-7,-7 -3.9,-10 0,-10 C3.9,-10 7,-7 7,-3 C7,0.5 4,4 0,9 Z M0,-6 C-1.7,-6 -3,-4.7 -3,-3 C-3,-1.3 -1.7,0 0,0 C1.7,0 3,-1.3 3,-3 C3,-4.7 1.7,-6 0,-6 Z" fill="#ffffff" fill-rule="evenodd"/>
+<text x="5216.3" y="1712.6" font-family="Arial" font-weight="normal" font-size="84.0" fill="#4a2414">Abu Saxiy, 3-blok,</text>
+<text x="5216.3" y="1817.6" font-family="Arial" font-weight="normal" font-size="84.0" fill="#4a2414">5-qator, 2-do'kon</text>
+<line x1="4437.0" y1="1627.8" x2="4437.0" y2="1839.4" stroke="#b89a78" stroke-width="6.00"/>
+</g>
+</svg>
