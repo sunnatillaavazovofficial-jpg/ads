@@ -50,7 +50,7 @@ AUTHOR_URL = "https://sunnatilla-designer.uz/"
 # ---------------------------------------------------------------------------
 C_BG = "#FFFFFF"
 C_BORDER = "#E6E8EE"
-C_ICON = "#3F4350"
+C_ICON = "#16181D"
 C_ICON_ACTIVE = "#000000"
 C_HOVER = "#EEF0F5"
 C_ACCENT = "#111827"
@@ -100,29 +100,38 @@ def set_autostart(on: bool) -> None:
 # {c} — ikonka rangi, {bg} — fon rangi
 # ---------------------------------------------------------------------------
 ICONS = {
-    "translate": '<path d="M2.5 5h11M8 2.5V5M5 5c1 4 3.6 7.2 7.2 8.6M11 5c-1 4.2-4 7.6-8 9.2"/>'
-                 '<path d="m12.5 21.5 4.5-10 4.5 10M14.2 17.8h5.6"/>',
-    "grammar": '<path d="m3.5 17.5 6-14 6 14M5.8 12.6h7.4"/>'
-               '<path d="m13.8 19 2.6 2.6L22 16"/>',
-    "newalpha": '<rect x="1.5" y="4" width="21" height="16" rx="4.5" fill="{c}" stroke="none"/>'
-                '<text x="12" y="16.6" font-size="11" font-weight="bold" text-anchor="middle" '
+    # Tarjima (to'q shakl)
+    "translate": '<path fill="{c}" stroke="{c}" stroke-width="0.7" stroke-linejoin="round" '
+                 'd="M12.87 15.07l-2.54-2.51.03-.03c1.74-1.94 2.98-4.17 3.71-6.53H17V4h-7V2H8v2H1v1.99'
+                 'h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 '
+                 '2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04zM18.5 10h-2L12 22h2l1.12-3h4.75L21 '
+                 '22h2l-4.5-12zm-2.62 7l1.62-4.33L19.12 17h-3.24z"/>',
+    # Grammatika: "A" va belgi (to'q shakl)
+    "grammar": '<path fill="{c}" stroke="{c}" stroke-width="0.8" stroke-linejoin="round" '
+               'd="M12.45 16h2.09L9.43 3H7.57L2.46 16h2.09l1.12-3h5.64l1.14 3zm-6.02-5L8.5 5.48 '
+               '10.57 11H6.43zm15.16.59l-8.09 8.09L9.83 16l-1.41 1.41 5.09 5.09L23 13l-1.41-1.41z"/>',
+    "newalpha": '<rect x="1" y="3.5" width="22" height="17" rx="5" fill="{c}" stroke="none"/>'
+                '<text x="12" y="16.7" font-size="11.5" font-weight="900" text-anchor="middle" '
                 'font-family="Arial" fill="{bg}" stroke="none">Öz</text>',
-    "cyrillic": '<rect x="1.5" y="4" width="21" height="16" rx="4.5" fill="{c}" stroke="none"/>'
-                '<text x="12" y="16.6" font-size="11" font-weight="bold" text-anchor="middle" '
+    "cyrillic": '<rect x="1" y="3.5" width="22" height="17" rx="5" fill="{c}" stroke="none"/>'
+                '<text x="12" y="16.7" font-size="11.5" font-weight="900" text-anchor="middle" '
                 'font-family="Arial" fill="{bg}" stroke="none">Ўз</text>',
-    "search": '<circle cx="10" cy="10" r="7" stroke-width="2.9"/>'
-              '<path d="M15.3 15.3 20.6 20.6" stroke-width="4.4"/>'
-              '<path d="M6.5 9.8a3.5 3.5 0 0 1 3.3-3.3" stroke-width="1.9" stroke-linecap="butt"/>',
-    "pin": '<path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 '
-           '15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 '
-           '0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/>',
-    "pin_on": '<path d="M12 17v5"/><path fill="{c}" d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 '
-              '2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l'
-              '-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 '
-              '0 0 1 1 1z"/>',
-    "folder": '<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 '
-              '3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>',
-    "settings": '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 '
+    # Lupa — siz yuborgan rasmdagidek
+    "search": '<circle cx="9.8" cy="9.8" r="7" stroke-width="3.3"/>'
+              '<path d="M15.6 15.6 20.6 20.6" stroke-width="5"/>'
+              '<path d="M6.3 9.6a3.5 3.5 0 0 1 3.3-3.3" stroke-width="2" stroke-linecap="butt"/>',
+    "pin": '<path d="M12 16.5v5.5" stroke-width="3"/>'
+           '<path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 '
+           '1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 '
+           '0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z" stroke-width="2.6"/>',
+    "pin_on": '<path d="M12 16.5v5.5" stroke-width="3"/>'
+              '<path fill="{c}" d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 '
+              '0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 '
+              '0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z" stroke-width="2.6"/>',
+    "folder": '<path fill="{c}" d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 '
+              '3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" stroke-width="2"/>',
+    # Sozlamalar: to'q tishli g'ildirak
+    "settings": '<path fill="{c}" stroke-width="1.6" d="M19.4 15a1.65 1.65 0 0 0 .33 '
                 '1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 '
                 '0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 '
                 '0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 '
@@ -130,23 +139,30 @@ ICONS = {
                 '0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 '
                 '1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 '
                 '1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 '
-                '1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
-    "close": '<path d="M18 6 6 18" stroke-width="2.8"/><path d="m6 6 12 12" stroke-width="2.8"/>',
-    "grip": '<circle cx="8" cy="5" r="1.7" fill="{c}" stroke="none"/>'
-            '<circle cx="16" cy="5" r="1.7" fill="{c}" stroke="none"/>'
-            '<circle cx="8" cy="12" r="1.7" fill="{c}" stroke="none"/>'
-            '<circle cx="16" cy="12" r="1.7" fill="{c}" stroke="none"/>'
-            '<circle cx="8" cy="19" r="1.7" fill="{c}" stroke="none"/>'
-            '<circle cx="16" cy="19" r="1.7" fill="{c}" stroke="none"/>',
-    "copy": '<rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4'
-            'c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
-    "paste": '<rect width="8" height="4" x="8" y="2" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14'
-             'a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>',
-    "send": '<path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/>',
-    "trash": '<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>'
-             '<path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>',
-    "globe": '<circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 '
-             '1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>',
+                '1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>'
+                '<circle cx="12" cy="12" r="3.2" fill="{bg}" stroke="none"/>',
+    "close": '<path d="M18 6 6 18" stroke-width="3.6"/><path d="m6 6 12 12" stroke-width="3.6"/>',
+    "grip": '<circle cx="8" cy="5" r="2" fill="{c}" stroke="none"/>'
+            '<circle cx="16" cy="5" r="2" fill="{c}" stroke="none"/>'
+            '<circle cx="8" cy="12" r="2" fill="{c}" stroke="none"/>'
+            '<circle cx="16" cy="12" r="2" fill="{c}" stroke="none"/>'
+            '<circle cx="8" cy="19" r="2" fill="{c}" stroke="none"/>'
+            '<circle cx="16" cy="19" r="2" fill="{c}" stroke="none"/>',
+    "copy": '<path d="M4.5 15.5c-1.4 0-2.5-1.1-2.5-2.5V4.5C2 3.1 3.1 2 4.5 2H13c1.4 0 2.5 1.1 2.5 2.5"'
+            ' stroke-width="2.8"/>'
+            '<rect width="14" height="14" x="8" y="8" rx="2.6" fill="{c}" stroke-width="2"/>',
+    "paste": '<path d="M16 4h1.5A2.5 2.5 0 0 1 20 6.5v13a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 '
+             '19.5v-13A2.5 2.5 0 0 1 6.5 4H8" stroke-width="2.8"/>'
+             '<rect width="9" height="5" x="7.5" y="1.5" rx="1.5" fill="{c}" stroke-width="1.6"/>',
+    "send": '<path fill="{c}" stroke-width="2" d="M21.5 2.5 2.8 9.4l7.6 4.2 4.2 7.6z"/>'
+            '<path d="M21.5 2.5 10.4 13.6" stroke="{bg}" stroke-width="1.8"/>',
+    "trash": '<path d="M2.8 6h18.4" stroke-width="3"/>'
+             '<path d="M8 6V4.2C8 3 9 2 10.2 2h3.6C15 2 16 3 16 4.2V6" stroke-width="2.6"/>'
+             '<path fill="{c}" stroke-width="1.6" d="M5 8h14l-1 12.2A2 2 0 0 1 16 22H8a2 2 0 0 '
+             '1-2-1.8z"/>',
+    "globe": '<circle cx="12" cy="12" r="9.6" stroke-width="2.8"/><path d="M2.6 12h18.8" '
+             'stroke-width="2.4"/><path d="M12 2.4a15 15 0 0 1 3.8 9.6 15 15 0 0 1-3.8 9.6 15 15 '
+             '0 0 1-3.8-9.6A15 15 0 0 1 12 2.4z" stroke-width="2.4"/>',
     "logo": '<path d="M12 3l1.9 4.6L18.5 9.5l-4.6 1.9L12 16l-1.9-4.6L5.5 9.5l4.6-1.9z" '
             'fill="{c}"/><path d="M19 15l.8 1.9 1.9.8-1.9.8L19 20.4l-.8-1.9-1.9-.8 1.9-.8z" '
             'fill="{c}"/>',
@@ -501,7 +517,7 @@ class GripHandle(QLabel):
         self.setFixedSize(int(24 * s), int(28 * s))
         self.setAlignment(Qt.AlignCenter)
         isz = int(18 * s)
-        self.setPixmap(svg_pixmap("grip", "#9EA3B0", isz))
+        self.setPixmap(svg_pixmap("grip", "#6B7080", isz))
         self.setCursor(Qt.SizeAllCursor)
 
     def mousePressEvent(self, e):
