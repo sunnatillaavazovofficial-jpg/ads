@@ -1,0 +1,30 @@
+name: Build AI Yordamchi (Windows exe)
+
+on:
+  push:
+    paths:
+      - "ai-yordamchi/**"
+      - ".github/workflows/build-ai-yordamchi.yml"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: ai-yordamchi
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt pyinstaller
+      - name: Build exe
+        run: pyinstaller --noconfirm --onefile --windowed --name "AI-Yordamchi" --icon assets/icon.ico app.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AI-Yordamchi-exe
+          path: ai-yordamchi/dist/AI-Yordamchi.exe
