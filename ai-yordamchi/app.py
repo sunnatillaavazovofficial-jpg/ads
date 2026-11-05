@@ -83,6 +83,41 @@ def accent_text(color: str) -> str:
     return "#111827" if lum > 170 else "#FFFFFF"
 
 
+SNIP_KEY = r"Control Panel\Keyboard"
+SNIP_VALUE = "PrintScreenKeyForSnippingEnabled"
+
+
+def windows_snip_key(cfg: dict, block: bool) -> None:
+    """Windows'ning o'z skrinshot vositasini (Snipping Tool) PrintScreen tugmasidan uzish
+    yoki avvalgi holatiga qaytarish. Faqat joriy foydalanuvchi uchun, admin kerak emas."""
+    if sys.platform != "win32":
+        return
+    try:
+        import winreg
+        with winreg.CreateKey(winreg.HKEY_CURRENT_USER, SNIP_KEY) as k:
+            try:
+                cur = winreg.QueryValueEx(k, SNIP_VALUE)[0]
+            except FileNotFoundError:
+                cur = None
+            if block:
+                if cur != 0:
+                    cfg["snip_prev"] = cur          # avvalgi qiymatni eslab qolamiz
+                    save_config(cfg)
+                winreg.SetValueEx(k, SNIP_VALUE, 0, winreg.REG_DWORD, 0)
+            elif "snip_prev" in cfg:
+                prev = cfg.pop("snip_prev")
+                save_config(cfg)
+                if prev is None:
+                    try:
+                        winreg.DeleteValue(k, SNIP_VALUE)
+                    except FileNotFoundError:
+                        pass
+                else:
+                    winreg.SetValueEx(k, SNIP_VALUE, 0, winreg.REG_DWORD, int(prev))
+    except Exception:
+        pass
+
+
 def set_autostart(on: bool) -> None:
     """Windows yonganda dasturni avtomatik ishga tushirish."""
     if sys.platform != "win32":
@@ -766,7 +801,8 @@ class SettingsDialog(QDialog):
         # Skrinshot va AI rasm
         lay.addSpacing(int(8 * s))
         lay.addWidget(self._section("Skrinshot va AI rasm"))
-        self.hook_keys = QCheckBox("  PrintScreen va Win+Shift+S bosilganda shu dastur ishlasin")
+        self.hook_keys = QCheckBox("  PrintScreen va Win+Shift+S — shu dastur (Windows'ning "
+                                   "o'z vositasi bloklanadi)")
         self.hook_keys.setChecked(cfg.get("hook_keys", True))
         self.hook_keys.setEnabled(sys.platform == "win32")
         lay.addWidget(self.hook_keys)
@@ -3019,6 +3055,9 @@ class Controller:
             self.hook = None
         if self.cfg.get("hook_keys", True):
             self.hook = KeyboardHook(lambda: self.start_capture("shot"))
+            windows_snip_key(self.cfg, True)      # Windows vositasi PrintScreen'ni olmasin
+        else:
+            windows_snip_key(self.cfg, False)     # avvalgi holatiga qaytaramiz
 
     def rebuild(self):
         old = self.win
@@ -3140,6 +3179,7 @@ class Controller:
         save_config(self.cfg)
         if self.hook is not None:
             self.hook.unhook()
+        windows_snip_key(self.cfg, False)         # dastur yopilsa — Windows vositasi qaytadi
         self.hotkey.unregister()
         self.tray.hide()
         QApplication.quit()
