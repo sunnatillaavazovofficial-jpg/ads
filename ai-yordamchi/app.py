@@ -761,7 +761,8 @@ class SettingsDialog(QDialog):
     def _style_swatch(b, col, d):
         b.setStyleSheet(
             f"QPushButton {{ background: {col}; border: 3px solid #FFFFFF; "
-            f"border-radius: {d // 2}px; padding: 0; min-width: 0; }}"
+            f"border-radius: {d // 2}px; padding: 0; min-width: {d - 6}px; max-width: {d - 6}px; "
+            f"min-height: {d - 6}px; max-height: {d - 6}px; }}"
             f"QPushButton:checked {{ border: 3px solid #C7CBD4; }}"
             f"QPushButton:hover {{ border: 3px solid #E3E6EC; }}")
 

@@ -1,9 +1,10 @@
-name: Build AI Yordamchi (Windows exe)
+name: Build AI dasturlar (Windows exe)
 
 on:
   push:
     paths:
       - "ai-yordamchi/**"
+      - "ai-rasm/**"
       - ".github/workflows/build-ai-yordamchi.yml"
   workflow_dispatch:
 
@@ -13,9 +14,6 @@ permissions:
 jobs:
   build:
     runs-on: windows-latest
-    defaults:
-      run:
-        working-directory: ai-yordamchi
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -24,21 +22,30 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt pyinstaller
-      - name: Build exe
+          python -m pip install -r ai-yordamchi/requirements.txt pyinstaller
+      - name: Build AI Yordamchi
+        working-directory: ai-yordamchi
         run: python -m PyInstaller --noconfirm --onefile --windowed --name "AI-Yordamchi" --icon assets/icon.ico app.py
+      - name: Build AI Rasm
+        working-directory: ai-rasm
+        run: python -m PyInstaller --noconfirm --onefile --windowed --name "AI-Rasm" --icon assets/icon.ico app.py
       - uses: actions/upload-artifact@v4
         with:
-          name: AI-Yordamchi-exe
-          path: ai-yordamchi/dist/AI-Yordamchi.exe
+          name: AI-dasturlar-exe
+          path: |
+            ai-yordamchi/dist/AI-Yordamchi.exe
+            ai-rasm/dist/AI-Rasm.exe
       - name: Publish release (download without login)
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ai-yordamchi-v${{ github.run_number }}
-          name: AI Yordamchi v${{ github.run_number }}
+          name: AI dasturlar v${{ github.run_number }}
           target_commitish: ${{ github.sha }}
           make_latest: "true"
           body: |
-            **AI-Yordamchi.exe** ni yuklab oling va ishga tushiring.
+            **AI-Yordamchi.exe**: tarjima, grammatika, yangi alifbo, kirill, inglizcha qidiruv.
+            **AI-Rasm.exe**: skrinshotni tahrirlab, ChatGPT orqali real rasmga aylantirish.
             Birinchi marta ⚙ Sozlamalar tugmasidan OpenAI API kalitini kiriting.
-          files: ai-yordamchi/dist/AI-Yordamchi.exe
+          files: |
+            ai-yordamchi/dist/AI-Yordamchi.exe
+            ai-rasm/dist/AI-Rasm.exe
