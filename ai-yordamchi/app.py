@@ -275,11 +275,8 @@ MODES = [
         "prompt": "You are an expert editor. Find and fix ALL grammar, spelling, punctuation and "
                   "word-choice errors in the user's text and rewrite it so it reads clearly, "
                   "naturally and meaningfully. Keep the ORIGINAL language, alphabet and meaning. "
-                  "If the text is Uzbek Latin, use oʻ, gʻ and ’ correctly.\n"
-                  "Answer strictly in this format:\n"
-                  "✅ To‘g‘rilangan matn:\n<corrected text>\n\n"
-                  "📝 Xatolar:\n- <short explanation in Uzbek Latin of each fix>\n"
-                  "If there are no errors, say so under 'Xatolar'.",
+                  "If the text is Uzbek Latin, use oʻ, gʻ and ’ correctly. "
+                  "Output ONLY the corrected text — no explanations, no list of errors.",
     },
     {
         "key": "newalpha", "icon": "newalpha", "title": "Yangi alifbo (Ö Ğ Ş Ç)", "shortcut": "3",
@@ -310,15 +307,49 @@ MODES = [
                        "qotiradigan egiluvchan ushlagich\"…",
         "prompt": "The user describes an object, product, spare part, tool, material, software "
                   "feature or property (usually in Uzbek or Russian) and may not know its name. "
-                  "Identify exactly what it is and tell the user what to search for in ENGLISH.\n"
-                  "Answer strictly in this format:\n"
-                  "🔎 English name: <the most precise English name>\n"
-                  "📌 Izoh: <1-2 sentences in Uzbek Latin explaining what it is>\n"
-                  "🔍 Search queries:\n1. <query>\n2. <query>\n3. <query>\n"
-                  "🏷 Alternative names: <comma separated synonyms / technical terms>",
+                  "Identify exactly what it is and output ONLY its most precise ENGLISH name / "
+                  "search term (usually 1-5 words) on a single line — nothing else, no "
+                  "explanation, no alternatives, no label.",
     },
 ]
 MODE_BY_KEY = {m["key"]: m for m in MODES}
+
+PLAIN_RULE = ("\n\nIMPORTANT: answer in plain text only. Never use emojis, markdown (**, #, `), "
+              "bullet points, quotation marks around the answer, headings, labels like "
+              "'Translation:' or any comments. Output only the result itself.")
+
+_EMOJI = re.compile("[\U0001F000-\U0001FAFF\u2600-\u27BF\u2B00-\u2BFF\uFE0F\u200D\u20E3]")
+_LABEL_WORDS = (r"(english name|search term|translation|tarjima|to[‘'ʻ`]?g[‘'ʻ`]?rilangan "
+                r"matn|natija|javob|result|answer|corrected text)")
+_LABEL = re.compile(r"^" + _LABEL_WORDS + r"\s*:\s*", re.I)
+_LABEL_ONLY = re.compile(_LABEL_WORDS + r"\s*:?", re.I)
+# javob oxiriga qo'shilgan izoh bo'limlari (kerak emas)
+_TAIL = re.compile(r"^(xatolar|errors|izoh|izohlar|tushuntirish|explanation|notes?|changes|"
+                   r"o[‘'ʻ`]?zgarishlar|изменения|ошибки)\s*:?\s*$", re.I)
+
+
+def clean_output(text: str, single_line: bool = False) -> str:
+    """Javobdan emoji, markdown belgilarini va keraksiz yorliqlarni olib tashlaydi."""
+    t = _EMOJI.sub("", text)
+    t = re.sub(r"\*\*(.+?)\*\*", r"\1", t, flags=re.S)
+    t = re.sub(r"__(.+?)__", r"\1", t, flags=re.S)
+    t = re.sub(r"^[ \t]{0,3}#{1,6}[ \t]*", "", t, flags=re.M)
+    t = t.replace("`", "")
+    lines = [ln.strip() for ln in t.strip().splitlines()]
+    for i, ln in enumerate(lines):
+        if i > 0 and _TAIL.match(ln):
+            lines = lines[:i]                          # "Xatolar:" va undan keyingisi kerak emas
+            break
+    while lines and (not lines[0] or _LABEL_ONLY.fullmatch(lines[0])):
+        lines.pop(0)                                   # faqat yorliqdan iborat qator
+    if lines:
+        lines[0] = _LABEL.sub("", lines[0])
+    if single_line:
+        lines = [ln for ln in lines if ln][:1]
+    t = "\n".join(lines).strip()
+    if len(t) >= 2 and (t[0], t[-1]) in {('"', '"'), ("«", "»"), ("“", "”")}:
+        t = t[1:-1].strip()
+    return t
 
 
 # ---------------------------------------------------------------------------
@@ -401,7 +432,7 @@ class Worker(QThread):
                 API_URL,
                 headers={"Authorization": f"Bearer {self.api_key}",
                          "Content-Type": "application/json"},
-                json={"model": self.model, "temperature": 0.3,
+                json={"model": self.model, "temperature": 0.2,
                       "messages": [{"role": "system", "content": self.system},
                                    {"role": "user", "content": self.text}]},
                 timeout=90,
@@ -1289,19 +1320,13 @@ class MainWindow(QWidget):
             self.input.setFocus()
 
     def copy_output(self):
-        txt = self.output.toPlainText()
-        if self.mode == "grammar" and "✅" in txt:
-            m = re.search(r"✅[^\n]*\n(.*?)(\n\s*📝|$)", txt, re.S)
-            if m:
-                txt = m.group(1).strip()
+        txt = self.output.toPlainText().strip()
         if txt:
             QGuiApplication.clipboard().setText(txt)
             self.status.setText("Nusxalandi ✓")
 
     def google_search(self):
-        txt = self.output.toPlainText()
-        m = re.search(r"English name:\s*(.+)", txt)
-        q = m.group(1).strip() if m else self.input.toPlainText().strip()
+        q = self.output.toPlainText().strip() or self.input.toPlainText().strip()
         if q:
             QDesktopServices.openUrl(QUrl("https://www.google.com/search?q=" +
                                           urllib.parse.quote(q)))
@@ -1341,7 +1366,7 @@ class MainWindow(QWidget):
                 return
         m = MODE_BY_KEY[self.mode]
         lang = self.lang_box.currentText()
-        system = m["prompt"].format(lang=LANGS[lang])
+        system = m["prompt"].format(lang=LANGS[lang]) + PLAIN_RULE
         new_alpha = self.mode == "newalpha" or (self.mode == "translate" and "yangi" in lang)
         self._req = (m["title"], lang if self.mode == "translate" else "", text, new_alpha)
         self.send_btn.setEnabled(False)
@@ -1356,6 +1381,7 @@ class MainWindow(QWidget):
 
     def _on_done(self, answer):
         title, extra, text, new_alpha = self._req
+        answer = clean_output(answer, single_line=(title == MODE_BY_KEY["search"]["title"]))
         if new_alpha:
             answer = to_new_alphabet(answer)
         self.output.setPlainText(answer)

@@ -9,12 +9,14 @@ Ekranda hamma dasturlar ustida turadigan kichik yordamchi (Windows, `.exe`). Cha
 | Ikonka | Vazifa | Tugma |
 |---|---|---|
 | 文A | **Tarjima**: o'zbekcha (yangi alifbo / lotin / kirill), English, Русский | `Ctrl+1` |
-| A✓ | **Grammatika**: xatolarni topadi, matnni ma'noli qilib to'g'rilaydi va xatolarni tushuntiradi | `Ctrl+2` |
+| A✓ | **Grammatika**: xatolarni topib, faqat to'g'rilangan matnni beradi | `Ctrl+2` |
 | Öz | **Yangi alifbo**: avval xatolarni to'g'rilaydi, keyin yangi o'zbek lotin alifbosida yozadi (Oʻ→Ö, Gʻ→Ğ, Sh→Ş, Ch→Ç) | `Ctrl+3` |
 | Ўз | **Kirill**: avval xatolarni to'g'rilaydi, keyin o'zbek kirill yozuvida yozadi | `Ctrl+4` |
-| 🔍 | **Inglizcha nima deb izlash**: narsa yoki xususiyatini tasvirlasangiz, inglizcha nomini va qidiruv so'zlarini beradi (Google tugmasi bilan) | `Ctrl+5` |
+| 🔍 | **Inglizcha nima deb izlash**: narsa yoki xususiyatini tasvirlasangiz, faqat inglizcha nomini (qidiruv so'zini) beradi; Google tugmasi bilan darhol izlash mumkin | `Ctrl+5` |
 
 Qaysi funksiyalar panelda ko'rinishini **⚙ Sozlamalar** ichida belgilaysiz.
+
+Barcha javoblar **oddiy matn** bo'lib chiqadi: emoji, belgi va ortiqcha izohlarsiz, faqat kerakli natija.
 
 ## Boshqaruv
 
