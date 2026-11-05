@@ -49,7 +49,10 @@ C_HOVER = "#EEF0F5"
 C_ICON = "#16181D"
 C_ACCENT = "#111827"
 
-ICON_SIZES = {"Kichik": 40, "O'rta": 52, "Katta": 64}
+ICON_SIZES = {"Kichik": 40, "O'rta": 52, "Katta": 64, "Juda katta": 80}
+ICON_MIN, ICON_MAX = 32, 96
+EDGES = {"bottom": "Pastda", "top": "Tepada", "left": "Chapda", "right": "O'ngda"}
+THEMES = ["Avto", "Och", "To'q"]
 APP_EXT = {".exe", ".lnk", ".bat", ".cmd", ".url", ".appref-ms"}
 
 # ---------------------------------------------------------------------------
@@ -136,8 +139,8 @@ def default_items():
 
 
 def load_config() -> dict:
-    cfg = {"items": None, "stack_dir": std(QStandardPaths.DownloadLocation), "size": "O'rta",
-           "idle": 70, "theme": "Och", "hide_taskbar": True, "autostart": True}
+    cfg = {"items": None, "stack_dir": std(QStandardPaths.DownloadLocation), "icon_px": 52,
+           "edge": "bottom", "idle": 70, "theme": "Avto", "hide_taskbar": True, "autostart": True}
     try:
         with open(config_path(), encoding="utf-8") as f:
             cfg.update(json.load(f))
@@ -145,10 +148,16 @@ def load_config() -> dict:
         pass
     if cfg.get("items") is None:
         cfg["items"] = default_items()
-    if cfg.get("size") not in ICON_SIZES:
-        cfg["size"] = "O'rta"
-    if cfg.get("theme") not in ("Och", "To'q"):
-        cfg["theme"] = "Och"
+    if "size" in cfg:                                   # eski versiyadan o'tish
+        cfg["icon_px"] = ICON_SIZES.get(cfg.pop("size"), 52)
+    try:
+        cfg["icon_px"] = max(ICON_MIN, min(ICON_MAX, int(cfg.get("icon_px", 52))))
+    except (TypeError, ValueError):
+        cfg["icon_px"] = 52
+    if cfg.get("edge") not in EDGES:
+        cfg["edge"] = "bottom"
+    if cfg.get("theme") not in THEMES:
+        cfg["theme"] = "Avto"
     try:
         cfg["idle"] = max(25, min(100, int(cfg.get("idle", 70))))
     except (TypeError, ValueError):
@@ -283,6 +292,45 @@ def open_path(path):
     QDesktopServices.openUrl(QUrl.fromLocalFile(path))
 
 
+def windows_theme():
+    """Windows tizim mavzusi: (to'qmi, asosiy rang yoki None).
+    Asosiy rang — Windows'da "taskbarda asosiy rangni ko'rsatish" yoqilgan bo'lsa."""
+    if sys.platform == "win32":
+        dark, tint = False, None
+        try:
+            import winreg
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER,
+                                r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize") as k:
+                try:
+                    dark = winreg.QueryValueEx(k, "SystemUsesLightTheme")[0] == 0
+                except FileNotFoundError:
+                    dark = winreg.QueryValueEx(k, "AppsUseLightTheme")[0] == 0
+                try:
+                    prevalence = winreg.QueryValueEx(k, "ColorPrevalence")[0]
+                except FileNotFoundError:
+                    prevalence = 0
+            if prevalence:
+                with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\DWM") as k:
+                    abgr = winreg.QueryValueEx(k, "AccentColor")[0] & 0xFFFFFFFF
+                    tint = QColor(abgr & 0xFF, (abgr >> 8) & 0xFF, (abgr >> 16) & 0xFF)
+        except Exception:
+            pass
+        return dark, tint
+    try:
+        return QGuiApplication.styleHints().colorScheme() == Qt.ColorScheme.Dark, None
+    except Exception:
+        return False, None
+
+
+def effective_theme(cfg):
+    t = cfg.get("theme", "Avto")
+    if t == "Och":
+        return False, None
+    if t == "To'q":
+        return True, None
+    return windows_theme()
+
+
 # ---------------------------------------------------------------------------
 # Panel elementi
 # ---------------------------------------------------------------------------
@@ -333,6 +381,8 @@ class FileOps(QObject):
 # Dok-panelning o'zi
 # ---------------------------------------------------------------------------
 class DockView(QWidget):
+    """Dok-panel. Ekranning istalgan chetida (past/tepa/chap/o'ng) turadi."""
+
     def __init__(self, ctrl):
         super().__init__(None, Qt.Tool | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
         self.ctrl = ctrl
@@ -341,17 +391,37 @@ class DockView(QWidget):
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setMouseTracking(True)
         self.setAcceptDrops(True)
-        self.B = ICON_SIZES[self.cfg["size"]]
-        self.hover_x = None
+        self.B = self.cfg["icon_px"]
+        self.hover = None             # kursorning panel bo'ylab koordinatasi
         self.act = 0.0
         self.drop = None              # ("insert", i) yoki ("into", i)
         self.press = None
         self.drag_idx = None
+        self.moving = None            # panelni sudrab joyini o'zgartirish
         self.items = []
+        self.dark, self.tint = effective_theme(self.cfg)
         self.anim = QTimer(self)
         self.anim.setInterval(16)
         self.anim.timeout.connect(self._step)
         self.rebuild_items()
+
+    # ---------- yo'nalish ----------
+    @property
+    def edge(self):
+        return self.cfg.get("edge", "bottom")
+
+    @property
+    def horizontal(self):
+        return self.edge in ("bottom", "top")
+
+    def main(self, pt):
+        """Nuqtaning panel bo'ylab koordinatasi."""
+        return pt.x() if self.horizontal else pt.y()
+
+    def set_theme(self, dark, tint):
+        if (dark, tint) != (self.dark, self.tint):
+            self.dark, self.tint = dark, tint
+            self.update()
 
     # ---------- elementlar ----------
     def rebuild_items(self):
@@ -364,6 +434,19 @@ class DockView(QWidget):
             self.items.append(DockItem(sd, px, stack=True))
         self.relayout()
 
+    def set_icon_px(self, px):
+        px = max(ICON_MIN, min(ICON_MAX, int(px)))
+        if px != self.B:
+            self.B = self.cfg["icon_px"] = px
+            save_config(self.cfg)
+            self.rebuild_items()
+
+    def set_edge(self, edge):
+        if edge in EDGES:
+            self.cfg["edge"] = edge
+            save_config(self.cfg)
+            self.relayout()
+
     def save_pinned(self):
         self.cfg["items"] = [it.path for it in self.items[:self.n_pinned]]
         save_config(self.cfg)
@@ -375,27 +458,61 @@ class DockView(QWidget):
         gap = round(B * 0.26)
         rise = round(B * 0.30)
         grow = 0.20
-        label_h = round(B * 0.60)
+        label = round(B * 0.60) if self.horizontal else round(B * 0.6) + 170
         sep = gap + 2 if (self.n_pinned and len(self.items) > self.n_pinned) else 0
+        grip = round(B * 0.32)                                # uchlaridagi ushlash joyi (sudrash uchun)
         n = max(1, len(self.items))
-        panel_w = 2 * pad + n * B + (n - 1) * gap + sep
-        panel_h = B + 2 * pad
+        length = 2 * (pad + grip) + n * B + (n - 1) * gap + sep   # panel uzunligi
+        thick = B + 2 * pad                                   # panel qalinligi
         side = round(B * grow * 0.6) + 10
-        top = rise + round(B * grow) + label_h
-        return dict(B=B, pad=pad, gap=gap, rise=rise, grow=grow, sep=sep, panel_w=panel_w,
-                    panel_h=panel_h, side=side, top=top,
-                    W=panel_w + 2 * side, H=top + panel_h + 10)
+        space = rise + round(B * grow) + label                # ichkariga — ko'tarilish va nom uchun
+        if self.horizontal:
+            W, H = length + 2 * side, space + thick + 10
+        else:
+            W, H = space + thick + 10, length + 2 * side
+        return dict(B=B, pad=pad, gap=gap, rise=rise, grow=grow, sep=sep, grip=grip, length=length,
+                    thick=thick, side=side, space=space, W=W, H=H)
 
     def panel_rect(self):
         m = self.metrics()
-        return QRectF(m["side"], m["top"], m["panel_w"], m["panel_h"])
+        e = self.edge
+        if e == "bottom":
+            return QRectF(m["side"], m["space"], m["length"], m["thick"])
+        if e == "top":
+            return QRectF(m["side"], 10, m["length"], m["thick"])
+        if e == "left":
+            return QRectF(10, m["side"], m["thick"], m["length"])
+        return QRectF(m["space"], m["side"], m["thick"], m["length"])
 
-    def item_cx(self, i):
+    def hover_rect(self):
         m = self.metrics()
-        x = m["side"] + m["pad"] + i * (m["B"] + m["gap"]) + m["B"] / 2
+        extra = m["rise"] + m["B"] * m["grow"]
+        pr = self.panel_rect()
+        return {"bottom": pr.adjusted(0, -extra, 0, 0), "top": pr.adjusted(0, 0, 0, extra),
+                "left": pr.adjusted(0, 0, extra, 0), "right": pr.adjusted(-extra, 0, 0, 0)}[self.edge]
+
+    def item_c(self, i):
+        """i-elementning panel bo'ylab markazi."""
+        m = self.metrics()
+        c = m["side"] + m["grip"] + m["pad"] + i * (m["B"] + m["gap"]) + m["B"] / 2
         if i >= self.n_pinned:
-            x += m["sep"]
-        return x
+            c += m["sep"]
+        return c
+
+    def icon_rect(self, i, lift):
+        m = self.metrics()
+        pr = self.panel_rect()
+        S = m["B"] * (1 + m["grow"] * lift)
+        off = m["rise"] * lift
+        c = self.item_c(i)
+        e = self.edge
+        if e == "bottom":
+            return QRectF(c - S / 2, pr.bottom() - m["pad"] - S - off, S, S)
+        if e == "top":
+            return QRectF(c - S / 2, pr.top() + m["pad"] + off, S, S)
+        if e == "left":
+            return QRectF(pr.left() + m["pad"] + off, c - S / 2, S, S)
+        return QRectF(pr.right() - m["pad"] - S - off, c - S / 2, S, S)
 
     def relayout(self):
         m = self.metrics()
@@ -404,9 +521,16 @@ class DockView(QWidget):
         self.update()
 
     def reposition(self):
-        scr = QGuiApplication.primaryScreen()
-        g = scr.availableGeometry()
-        self.move(g.center().x() - self.width() // 2, g.bottom() - self.height() - 2)
+        g = QGuiApplication.primaryScreen().availableGeometry()
+        e = self.edge
+        if e == "bottom":
+            self.move(g.center().x() - self.width() // 2, g.bottom() - self.height() - 2)
+        elif e == "top":
+            self.move(g.center().x() - self.width() // 2, g.top() + 2)
+        elif e == "left":
+            self.move(g.left() + 2, g.center().y() - self.height() // 2)
+        else:
+            self.move(g.right() - self.width() - 2, g.center().y() - self.height() // 2)
 
     # ---------- animatsiya ----------
     def _kick(self):
@@ -415,13 +539,12 @@ class DockView(QWidget):
 
     def _targets(self):
         m = self.metrics()
-        x = self.hover_x
         out = []
         for i in range(len(self.items)):
-            if x is None:
+            if self.hover is None or self.moving is not None:
                 out.append(0.0)
             else:
-                d = (x - self.item_cx(i)) / (m["B"] * 0.95)
+                d = (self.hover - self.item_c(i)) / (m["B"] * 0.95)
                 out.append(math.exp(-d * d))
         return out
 
@@ -433,7 +556,8 @@ class DockView(QWidget):
                 busy = True
             else:
                 it.lift = t
-        ta = 1.0 if (self.hover_x is not None or self.drop is not None or self.ctrl.stack) else 0.0
+        ta = 1.0 if (self.hover is not None or self.drop is not None or self.ctrl.stack
+                     or self.moving is not None) else 0.0
         self.act += (ta - self.act) * 0.2
         if abs(ta - self.act) > 0.004:
             busy = True
@@ -451,32 +575,52 @@ class DockView(QWidget):
         p.setRenderHint(QPainter.SmoothPixmapTransform)
         pr = self.panel_rect()
         a = self.act
-        dark = self.cfg.get("theme") == "To'q"
-        base = QColor(18, 20, 26) if dark else QColor(255, 255, 255)
+        dark = self.dark
+        if self.tint is not None:
+            base = QColor(self.tint)
+        else:
+            base = QColor(24, 26, 32) if dark else QColor(255, 255, 255)
         base.setAlpha(int(255 * (0.16 + 0.46 * a)))
-        rad = pr.height() * 0.34
+        rad = m["thick"] * 0.34
         for i, al in enumerate((14, 9, 5)):                     # yumshoq soya
             p.setPen(Qt.NoPen)
             p.setBrush(QColor(0, 0, 0, int(al * (0.4 + 0.6 * a))))
             p.drawRoundedRect(pr.adjusted(-i, 2 - i, i, 3 + i), rad + i, rad + i)
         p.setBrush(base)
-        p.setPen(QPen(QColor(255, 255, 255, int(70 + 90 * a)), 1))
+        p.setPen(QPen(QColor(255, 255, 255, int((40 if dark else 70) + 90 * a)), 1))
         p.drawRoundedRect(pr, rad, rad)
 
+        line_col = QColor(255, 255, 255, 110) if dark else QColor(0, 0, 0, 50)
         if m["sep"]:                                             # ajratuvchi chiziq
-            sx = self.item_cx(self.n_pinned) - m["B"] / 2 - m["gap"] / 2 - m["sep"] / 2
-            p.setPen(QPen(QColor(255, 255, 255, 120) if dark else QColor(0, 0, 0, 50), 1.5))
-            p.drawLine(QPointF(sx, pr.top() + m["pad"] * 0.9), QPointF(sx, pr.bottom() - m["pad"] * 0.9))
+            c = self.item_c(self.n_pinned) - m["B"] / 2 - m["gap"] / 2 - m["sep"] / 2
+            k = m["pad"] * 0.9
+            p.setPen(QPen(line_col, 1.5))
+            if self.horizontal:
+                p.drawLine(QPointF(c, pr.top() + k), QPointF(c, pr.bottom() - k))
+            else:
+                p.drawLine(QPointF(pr.left() + k, c), QPointF(pr.right() - k, c))
+
+        if a > 0.05:                                             # ushlash nuqtalari (⋮)
+            dot = QColor(line_col)
+            dot.setAlpha(int(dot.alpha() * 2.2 * a))
+            p.setPen(Qt.NoPen)
+            p.setBrush(dot)
+            r0 = max(1.6, m["B"] * 0.035)
+            for c in (m["side"] + m["grip"] * 0.62,
+                      m["side"] + m["length"] - m["grip"] * 0.62):
+                for k in (-1, 0, 1):
+                    off = k * r0 * 3.2
+                    if self.horizontal:
+                        p.drawEllipse(QPointF(c, pr.center().y() + off), r0, r0)
+                    else:
+                        p.drawEllipse(QPointF(pr.center().x() + off, c), r0, r0)
 
         idle = self.cfg.get("idle", 70) / 100.0
         hovered = None
         for i, it in enumerate(self.items):
             if i == self.drag_idx:
                 continue
-            size = m["B"] * (1 + m["grow"] * it.lift)
-            cx = self.item_cx(i)
-            y = pr.bottom() - m["pad"] - size - m["rise"] * it.lift
-            r = QRectF(cx - size / 2, y, size, size)
+            r = self.icon_rect(i, it.lift)
             p.setOpacity(idle + (1 - idle) * max(a, it.lift))
             p.drawPixmap(r, it.pm, QRectF(it.pm.rect()))
             p.setOpacity(1.0)
@@ -484,86 +628,126 @@ class DockView(QWidget):
                 p.setPen(QPen(QColor("#3B82F6"), 2.5))
                 p.setBrush(QColor(59, 130, 246, 40))
                 p.drawRoundedRect(r.adjusted(-5, -5, 5, 5), 12, 12)
-            if it.lift > 0.72 and self.hover_x is not None and (hovered is None or it.lift > hovered[1].lift):
+            if it.lift > 0.72 and self.hover is not None and \
+                    (hovered is None or it.lift > hovered[1].lift):
                 hovered = (r, it)
 
         if self.drop and self.drop[0] == "insert":              # qo'shiladigan joy
             i = self.drop[1]
             if i < self.n_pinned:
-                x = self.item_cx(i) - m["B"] / 2 - m["gap"] / 2
+                c = self.item_c(i) - m["B"] / 2 - m["gap"] / 2
             else:
-                x = self.item_cx(max(0, self.n_pinned - 1)) + m["B"] / 2 + m["gap"] / 2
+                c = self.item_c(max(0, self.n_pinned - 1)) + m["B"] / 2 + m["gap"] / 2
             p.setPen(Qt.NoPen)
             p.setBrush(QColor("#3B82F6"))
-            p.drawRoundedRect(QRectF(x - 2, pr.top() + 6, 4, pr.height() - 12), 2, 2)
+            if self.horizontal:
+                p.drawRoundedRect(QRectF(c - 2, pr.top() + 6, 4, pr.height() - 12), 2, 2)
+            else:
+                p.drawRoundedRect(QRectF(pr.left() + 6, c - 2, pr.width() - 12, 4), 2, 2)
 
-        if hovered and self.drag_idx is None and self.drop is None:   # nom — faqat kursor borganda
-            r, it = hovered
+        if hovered and self.drag_idx is None and self.drop is None and self.moving is None:
+            r, it = hovered                                      # nom — faqat kursor borganda
             f = QFont("Segoe UI")
             f.setPixelSize(max(11, round(m["B"] * 0.25)))
             f.setBold(True)
             p.setFont(f)
             fm = QFontMetrics(f)
-            text = fm.elidedText(it.name, Qt.ElideMiddle, 260)
+            text = fm.elidedText(it.name, Qt.ElideMiddle, 160 if not self.horizontal else 260)
             tw, th = fm.horizontalAdvance(text) + 20, fm.height() + 10
-            box = QRectF(r.center().x() - tw / 2, r.top() - th - 6, tw, th)
+            e = self.edge
+            if e == "bottom":
+                box = QRectF(r.center().x() - tw / 2, r.top() - th - 6, tw, th)
+            elif e == "top":
+                box = QRectF(r.center().x() - tw / 2, r.bottom() + 6, tw, th)
+            elif e == "left":
+                box = QRectF(r.right() + 8, r.center().y() - th / 2, tw, th)
+            else:
+                box = QRectF(r.left() - tw - 8, r.center().y() - th / 2, tw, th)
             box.moveLeft(max(2, min(box.left(), self.width() - tw - 2)))
             p.setPen(Qt.NoPen)
-            p.setBrush(QColor(17, 24, 39, 215))
+            p.setBrush(QColor(245, 246, 248, 235) if dark else QColor(17, 24, 39, 215))
             p.drawRoundedRect(box, th / 2, th / 2)
-            p.setPen(QColor("#FFFFFF"))
+            p.setPen(QColor(C_TEXT) if dark else QColor("#FFFFFF"))
             p.drawText(box, Qt.AlignCenter, text)
         p.end()
 
     # ---------- sichqoncha ----------
     def item_at(self, pos):
         m = self.metrics()
-        pr = self.panel_rect().adjusted(0, -m["rise"] - m["B"] * m["grow"], 0, 0)
-        if not pr.contains(QPointF(pos)):
+        if not self.hover_rect().contains(QPointF(pos)):
             return None
         for i in range(len(self.items)):
-            if abs(pos.x() - self.item_cx(i)) <= (m["B"] + m["gap"]) / 2:
+            if abs(self.main(pos) - self.item_c(i)) <= (m["B"] + m["gap"]) / 2:
                 return i
         return None
 
     def _set_hover(self, pos):
-        m = self.metrics()
-        pr = self.panel_rect().adjusted(0, -m["rise"] - m["B"] * m["grow"], 0, 0)
-        self.hover_x = pos.x() if pr.contains(QPointF(pos)) else None
+        self.hover = self.main(pos) if self.hover_rect().contains(QPointF(pos)) else None
+        on_grip = self.panel_rect().contains(QPointF(pos)) and self.item_at(pos) is None
+        if on_grip:
+            self.setCursor(Qt.SizeAllCursor)
+        else:
+            self.unsetCursor()
         self._kick()
 
     def mouseMoveEvent(self, e):
         pos = e.position()
+        if self.moving is not None:                              # panelni sudrash
+            self.move((e.globalPosition() - self.moving).toPoint())
+            return
         self._set_hover(pos)
         if self.press is not None and (e.buttons() & Qt.LeftButton):
             p0, idx = self.press
-            if idx is not None and idx < self.n_pinned and \
-                    (pos - p0).manhattanLength() > QApplication.startDragDistance():
+            if (pos - p0).manhattanLength() > QApplication.startDragDistance():
                 self.press = None
-                self._drag_item(idx)
+                if idx is None:
+                    self.moving = e.globalPosition() - QPointF(self.pos())
+                    self.setCursor(Qt.SizeAllCursor)
+                    self._kick()
+                elif idx < self.n_pinned:
+                    self._drag_item(idx)
 
     def leaveEvent(self, e):
-        self.hover_x = None
-        self._kick()
+        if self.moving is None:
+            self.hover = None
+            self._kick()
 
     def mousePressEvent(self, e):
         if e.button() == Qt.LeftButton:
             self.press = (e.position(), self.item_at(e.position()))
 
     def mouseReleaseEvent(self, e):
-        if e.button() == Qt.LeftButton and self.press is not None:
+        if e.button() != Qt.LeftButton:
+            return
+        if self.moving is not None:                              # eng yaqin chetga yopishadi
+            self.moving = None
+            self.unsetCursor()
+            g = QGuiApplication.primaryScreen().availableGeometry()
+            c = e.globalPosition().toPoint()
+            dist = {"bottom": g.bottom() - c.y(), "top": c.y() - g.top(),
+                    "left": c.x() - g.left(), "right": g.right() - c.x()}
+            self.set_edge(min(dist, key=dist.get))
+            self.hover = None
+            self._kick()
+            return
+        if self.press is not None:
             _, idx = self.press
             self.press = None
             if idx is not None and idx == self.item_at(e.position()):
                 self.activate(idx)
 
+    def wheelEvent(self, e):
+        if e.modifiers() & Qt.ControlModifier:                  # Ctrl + g'ildirakcha — o'lcham
+            step = 4 if e.angleDelta().y() > 0 else -4
+            self.set_icon_px(self.B + step)
+            e.accept()
+
     def activate(self, idx):
         it = self.items[idx]
         if it.is_dir:
-            m = self.metrics()
-            top_left = self.mapToGlobal(QPoint(int(self.item_cx(idx) - m["B"] / 2),
-                                               int(self.panel_rect().top())))
-            self.ctrl.open_stack(it.path, QRect(top_left, QSize(m["B"], m["B"])))
+            r = self.icon_rect(idx, 0)
+            tl = self.mapToGlobal(r.topLeft().toPoint())
+            self.ctrl.open_stack(it.path, QRect(tl, r.size().toSize()))
         else:
             open_path(it.path)
 
@@ -581,6 +765,22 @@ class DockView(QWidget):
             menu.addSeparator()
         menu.addAction("Fayl yoki dastur qo'shish…", self.ctrl.add_file)
         menu.addAction("Papka qo'shish…", self.ctrl.add_folder)
+        pos_menu = menu.addMenu("Joylashuv")
+        for key, title in EDGES.items():
+            a = pos_menu.addAction(title, lambda k=key: self.set_edge(k))
+            a.setCheckable(True)
+            a.setChecked(key == self.edge)
+        size_menu = menu.addMenu("O'lcham")
+        for title, px in ICON_SIZES.items():
+            a = size_menu.addAction(f"{title}  ({px}px)", lambda v=px: self.set_icon_px(v))
+            a.setCheckable(True)
+            a.setChecked(px == self.B)
+        theme_menu = menu.addMenu("Fon")
+        for t in THEMES:
+            a = theme_menu.addAction("Avto (Windows mavzusi)" if t == "Avto" else t,
+                                     lambda v=t: self.ctrl.set_theme_mode(v))
+            a.setCheckable(True)
+            a.setChecked(t == self.cfg.get("theme"))
         menu.addAction("Sozlamalar", self.ctrl.open_settings)
         menu.addSeparator()
         menu.addAction("Chiqish", self.ctrl.quit)
@@ -604,7 +804,7 @@ class DockView(QWidget):
         save_config(self.cfg)
         self.rebuild_items()
 
-    # ---------- panel ichida sudrash (tartibni o'zgartirish / olib tashlash) ----------
+    # ---------- panel ichida sudrash (tartib / olib tashlash) ----------
     def _drag_item(self, idx):
         it = self.items[idx]
         md = QMimeData()
@@ -619,9 +819,10 @@ class DockView(QWidget):
         res = drag.exec(Qt.MoveAction)
         self.drag_idx = None
         if res == Qt.IgnoreAction:
-            # paneldan ancha uzoqqa tashlansa — paneldan olib tashlanadi (fayl o'chmaydi)
-            local = self.mapFromGlobal(QCursor.pos())
-            if local.y() < self.panel_rect().top() - self.B * 1.2 or not self.rect().contains(local):
+            # paneldan ancha uzoqqa tashlansa — olib tashlanadi (faylning o'zi o'chmaydi)
+            local = QPointF(self.mapFromGlobal(QCursor.pos()))
+            far = self.panel_rect().adjusted(-self.B * 1.2, -self.B * 1.2, self.B * 1.2, self.B * 1.2)
+            if not far.contains(local):
                 self.remove(idx)
         self.drop = None
         self.update()
@@ -631,10 +832,10 @@ class DockView(QWidget):
         idx = self.item_at(pos)
         m = self.metrics()
         if external and idx is not None and self.items[idx].kind in ("folder", "app") \
-                and abs(pos.x() - self.item_cx(idx)) < m["B"] * 0.38:
+                and abs(self.main(pos) - self.item_c(idx)) < m["B"] * 0.38:
             return ("into", idx)
         i = 0
-        while i < self.n_pinned and self.item_cx(i) < pos.x():
+        while i < self.n_pinned and self.item_c(i) < self.main(pos):
             i += 1
         return ("insert", i)
 
@@ -649,7 +850,7 @@ class DockView(QWidget):
         external = not md.hasFormat(MIME_INDEX)
         pos = e.position()
         self.drop = self._drop_target(pos, external)
-        self.hover_x = pos.x()
+        self.hover = self.main(pos)
         if external and self.drop[0] == "into":
             e.setDropAction(Qt.MoveAction if e.modifiers() & Qt.ShiftModifier else Qt.CopyAction)
             e.accept()
@@ -659,14 +860,14 @@ class DockView(QWidget):
 
     def dragLeaveEvent(self, e):
         self.drop = None
-        self.hover_x = None
+        self.hover = None
         self._kick()
 
     def dropEvent(self, e):
         md = e.mimeData()
         target = self._drop_target(e.position(), not md.hasFormat(MIME_INDEX))
         self.drop = None
-        self.hover_x = None
+        self.hover = None
         if md.hasFormat(MIME_INDEX):
             src = int(bytes(md.data(MIME_INDEX)).decode())
             to = target[1] if target[0] == "insert" else src
@@ -780,11 +981,11 @@ class FolderStack(QWidget):
         super().__init__(None, Qt.Tool | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
         self.ctrl, self.folder, self.anchor = ctrl, folder, anchor
         self.dragging = False
-        self.dark = ctrl.cfg.get("theme") == "To'q"
+        self.dark = ctrl.dock.dark if ctrl.dock is not None else False
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setAttribute(Qt.WA_DeleteOnClose)
         self.setAcceptDrops(True)
-        self.size_ = ICON_SIZES[ctrl.cfg["size"]]
+        self.size_ = max(40, min(64, ctrl.cfg["icon_px"]))
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(14, 14, 14, 14)
@@ -862,11 +1063,19 @@ class FolderStack(QWidget):
         self.place()
 
     def place(self):
+        """Panel qaysi chetda bo'lsa — papka oynasi ekran ichkarisi tomonga ochiladi."""
         scr = QGuiApplication.screenAt(self.anchor.center()) or QGuiApplication.primaryScreen()
         g = scr.availableGeometry()
-        x = self.anchor.center().x() - self.width() // 2
+        a = self.anchor
+        edge = self.ctrl.cfg.get("edge", "bottom")
+        if edge in ("bottom", "top"):
+            x = a.center().x() - self.width() // 2
+            y = a.top() - self.height() + 6 if edge == "bottom" else a.bottom() - 6
+        else:
+            y = a.center().y() - self.height() // 2
+            x = a.right() - 6 if edge == "left" else a.left() - self.width() + 6
         x = max(g.left(), min(x, g.right() - self.width()))
-        y = max(g.top(), self.anchor.top() - self.height() + 6)
+        y = max(g.top(), min(y, g.bottom() - self.height()))
         self.move(x, y)
 
     def keyPressEvent(self, e):
@@ -934,27 +1143,50 @@ class SettingsDialog(QDialog):
         lay.addLayout(row)
 
         lay.addSpacing(6)
-        lay.addWidget(self._section("Ikonkalar o'lchami"))
-        seg = QHBoxLayout()
-        self.size_group = QButtonGroup(self)
-        for name in ICON_SIZES:
-            b = QPushButton(name)
+        lay.addWidget(self._section("Joylashuv (panelni sudrab ham o'zgartirsa bo'ladi)"))
+        erow = QHBoxLayout()
+        self.edge_group = QButtonGroup(self)
+        for key, title in EDGES.items():
+            b = QPushButton(title)
             b.setObjectName("seg")
             b.setCheckable(True)
-            b.setChecked(name == cfg.get("size"))
-            self.size_group.addButton(b)
-            seg.addWidget(b)
-        lay.addLayout(seg)
+            b.setProperty("key", key)
+            b.setChecked(key == cfg.get("edge"))
+            self.edge_group.addButton(b)
+            erow.addWidget(b)
+        lay.addLayout(erow)
+
+        lay.addSpacing(6)
+        lay.addWidget(self._section("Ikonkalar o'lchami (panel ustida Ctrl + g'ildirakcha)"))
+        srow = QHBoxLayout()
+        self.icon_px = QSlider(Qt.Horizontal)
+        self.icon_px.setRange(ICON_MIN, ICON_MAX)
+        self.icon_px.setSingleStep(2)
+        self.icon_px.setValue(int(cfg.get("icon_px", 52)))
+        srow.addWidget(self.icon_px, 1)
+        self.px_lbl = QLabel(f"{self.icon_px.value()} px")
+        self.px_lbl.setMinimumWidth(52)
+        self.icon_px.valueChanged.connect(lambda v: self.px_lbl.setText(f"{v} px"))
+        srow.addWidget(self.px_lbl)
+        lay.addLayout(srow)
+        prow = QHBoxLayout()
+        for title, px in ICON_SIZES.items():
+            b = QPushButton(title)
+            b.setObjectName("seg")
+            b.clicked.connect(lambda _=False, v=px: self.icon_px.setValue(v))
+            prow.addWidget(b)
+        lay.addLayout(prow)
 
         lay.addSpacing(6)
         lay.addWidget(self._section("Ko'rinish"))
         trow = QHBoxLayout()
         trow.addWidget(QLabel("Fon:"))
         self.theme_group = QButtonGroup(self)
-        for name in ("Och", "To'q"):
-            b = QPushButton(name)
+        for name in THEMES:
+            b = QPushButton("Avto (Windows)" if name == "Avto" else name)
             b.setObjectName("seg")
             b.setCheckable(True)
+            b.setProperty("key", name)
             b.setChecked(name == cfg.get("theme"))
             self.theme_group.addButton(b)
             trow.addWidget(b)
@@ -1013,10 +1245,11 @@ class SettingsDialog(QDialog):
             self.dir_lbl.setText(d)
 
     def values(self):
-        b = self.size_group.checkedButton()
+        eb = self.edge_group.checkedButton()
         t = self.theme_group.checkedButton()
-        return {"stack_dir": self.stack_dir, "size": b.text() if b else "O'rta",
-                "theme": t.text() if t else "Och", "idle": self.idle.value(),
+        return {"stack_dir": self.stack_dir, "icon_px": self.icon_px.value(),
+                "edge": eb.property("key") if eb else "bottom",
+                "theme": t.property("key") if t else "Avto", "idle": self.idle.value(),
                 "hide_taskbar": self.hide_tb.isChecked(), "autostart": self.autostart.isChecked()}
 
 
@@ -1060,6 +1293,7 @@ class Controller:
         self.cfg = load_config()
         save_config(self.cfg)
         self.stack = None
+        self.dock = None
         self.ops = FileOps()
         self.ops.finished.connect(self._op_done)
 
@@ -1081,6 +1315,25 @@ class Controller:
         scr = QGuiApplication.primaryScreen()
         scr.availableGeometryChanged.connect(lambda _g: self.dock.reposition())
         QTimer.singleShot(1500, self.dock.reposition)      # taskbar yashirilgach joyini to'g'rilaymiz
+
+        # Windows mavzusi (och/to'q, asosiy rang) o'zgarsa — panel rangi ham o'zgaradi
+        self.theme_timer = QTimer()
+        self.theme_timer.timeout.connect(self.refresh_theme)
+        self.theme_timer.start(3000)
+        try:
+            QGuiApplication.styleHints().colorSchemeChanged.connect(lambda _s: self.refresh_theme())
+        except Exception:
+            pass
+
+    def refresh_theme(self):
+        dark, tint = effective_theme(self.cfg)
+        if self.dock is not None:
+            self.dock.set_theme(dark, tint)
+
+    def set_theme_mode(self, mode):
+        self.cfg["theme"] = mode
+        save_config(self.cfg)
+        self.refresh_theme()
 
     def apply_windows(self):
         if self.cfg.get("autostart"):
@@ -1153,8 +1406,9 @@ class Controller:
             save_config(self.cfg)
             if tb_changed:
                 self.apply_windows()
-            self.dock.B = ICON_SIZES[self.cfg["size"]]
+            self.dock.B = self.cfg["icon_px"]
             self.dock.rebuild_items()
+            self.refresh_theme()
             QTimer.singleShot(1200, self.dock.reposition)
 
     def quit(self):

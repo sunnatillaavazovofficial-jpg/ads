@@ -6,7 +6,10 @@ Windows uchun **taskbar o'rnida turadigan shaffof dok-panel**. Fonda ishlaydi va
 
 ## Imkoniyatlar
 
-- **Taskbar o'rnida:** asosiy ekranning pastki markazida turadi. Windows taskbar'i avtomatik yashiriladi (Sozlamalarda o'chirsa bo'ladi; dastur yopilganda taskbar avvalgi holatiga qaytadi).
+- **Joylashuv:** pastda (standart), tepada, chapda yoki o'ngda. Panel uchidagi **⋮** joydan ushlab sudrasangiz, u eng yaqin chetga yopishadi. Sozlamalarda yoki o'ng tugma menyusida (Joylashuv) ham tanlash mumkin.
+- **O'lcham:** ikonkalar o'lchami 32–96 px. Sozlamalarda surgich va tayyor o'lchamlar bor; panel ustida **Ctrl + g'ildirakcha** bilan darhol kattalashtirib-kichraytirasiz; o'ng tugma menyusida (O'lcham) ham bor.
+- **Fon rangi Windows mavzusiga qarab:** "Avto" rejimda Windows och yoki to'q mavzusiga qarab o'zgaradi. Windows'da "taskbarda asosiy rangni ko'rsatish" yoqilgan bo'lsa, o'sha rang olinadi. Mavzu almashsa, panel ham o'zi almashadi. Xohlasangiz, doim "Och" yoki "To'q" qilib qo'yasiz.
+- **Taskbar o'rnida:** standart holatda asosiy ekranning pastki markazida turadi. Windows taskbar'i avtomatik yashiriladi (Sozlamalarda o'chirsa bo'ladi; dastur yopilganda taskbar avvalgi holatiga qaytadi).
 - **Shaffof:** foydalanilmaganda panel deyarli ko'rinmaydi, ikonkalar xira turadi.
 - **Ko'tariluvchi ikonkalar:** kursor kelganda ikonkalar biroz ko'tariladi; kursor qaysi ikonka ustida bo'lsa, o'sha eng ko'p ko'tariladi. Nom faqat kursor borganda chiqadi.
 - **Sudrab qo'shish:** fayl, dastur, yorliq (`.lnk`) yoki papkani sichqoncha bilan panelga sudrab tashlasangiz, yorliq qo'shiladi. Ikonkalarni sudrab tartibini o'zgartirasiz; paneldan tashqariga sudrab tashlasangiz, olib tashlanadi (faylning o'zi o'chmaydi).
@@ -19,7 +22,7 @@ Windows uchun **taskbar o'rnida turadigan shaffof dok-panel**. Fonda ishlaydi va
 
 ## Sozlamalar
 
-Ikonkalar o'lchami (Kichik / O'rta / Katta), fon (Och / To'q), foydalanilmaganda ko'rinishi (shaffoflik), Windows taskbar'ini yashirish, kompyuter yonganda ishga tushish, **by Sunnatilla Designer** havolasi.
+Joylashuv, ikonkalar o'lchami (32–96 px), fon (Avto / Och / To'q), foydalanilmaganda ko'rinishi (shaffoflik), Windows taskbar'ini yashirish, kompyuter yonganda ishga tushish, **by Sunnatilla Designer** havolasi.
 
 ---
 by [Sunnatilla Designer](https://sunnatilla-designer.uz/)
