@@ -1,10 +1,10 @@
 # AI Yordamchi
 
-Ekranda hamma dasturlar ustida turadigan kichik yordamchi (Windows, `.exe`). ChatGPT (OpenAI API) yordamida ishlaydi.
+Ekranda hamma dasturlar ustida turadigan yordamchi (Windows, `.exe`). ChatGPT (OpenAI API) yordamida ishlaydi. Matn bilan ishlash, skrinshot olish va AI bilan real rasm yasash bitta dasturda jamlangan.
 
 **Yuklab olish:** https://github.com/sunnatillaavazovofficial-jpg/ads/releases/latest/download/AI-Yordamchi.exe (GitHub akkaunti shart emas)
 
-## Funksiyalar
+## Matn funksiyalari
 
 | Ikonka | Vazifa | Tugma |
 |---|---|---|
@@ -12,28 +12,30 @@ Ekranda hamma dasturlar ustida turadigan kichik yordamchi (Windows, `.exe`). Cha
 | A✓ | **Grammatika**: xatolarni topib, faqat to'g'rilangan matnni beradi | `Ctrl+2` |
 | Öz | **Yangi alifbo**: avval xatolarni to'g'rilaydi, keyin yangi o'zbek lotin alifbosida yozadi (Oʻ→Ö, Gʻ→Ğ, Sh→Ş, Ch→Ç) | `Ctrl+3` |
 | Ўз | **Kirill**: avval xatolarni to'g'rilaydi, keyin o'zbek kirill yozuvida yozadi | `Ctrl+4` |
-| 🔍 | **Inglizcha nima deb izlash**: narsa yoki xususiyatini tasvirlasangiz, faqat inglizcha nomini (qidiruv so'zini) beradi; Google tugmasi bilan darhol izlash mumkin | `Ctrl+5` |
+| 🔍 | **Inglizcha nima deb izlash**: faqat inglizcha nomini beradi; Google tugmasi bilan darhol izlash mumkin | `Ctrl+5` |
 
-Qaysi funksiyalar panelda ko'rinishini **⚙ Sozlamalar** ichida belgilaysiz.
+Barcha javoblar **oddiy matn** bo'lib chiqadi: emoji va ortiqcha izohlarsiz.
 
-Barcha javoblar **oddiy matn** bo'lib chiqadi: emoji, belgi va ortiqcha izohlarsiz, faqat kerakli natija.
+## Skrinshot va AI rasm
+
+- **PrintScreen** yoki **Win+Shift+S** bosilganda shu dastur ishlaydi (Windows vositasi o'rniga). Zaxira tugma: `Ctrl+Alt+S`.
+- **Oddiy skrinshot:** joyni belgilaysiz (`Enter` butun ekranni oladi, `Esc` bekor qiladi). Rasm darhol **nusxalanadi** (`Ctrl+V` bilan joylashtirasiz) va **tanlangan papkaga saqlanadi**. Keyin pastda kichik oyna chiqadi:
+  - **"Sifatini oshiraymi?"** "Ha" desangiz, rasm 2 barobar kattalashtiriladi va tiniqlashtiriladi (bepul, kompyuterda bajariladi), so'ng nusxalanib saqlanadi;
+  - **AI rasm** tugmasi skrinshotni AI tahrirlash oynasida ochadi.
+- **AI rasm (✦ tugmasi):** skrinshot olingach, tahrirlash oynasi ochiladi:
+  - qalam, marker, strelka, to'rtburchak, doira, **matn yozish**; 6 rang, 3 qalinlik; orqaga/oldinga;
+  - chizilgan belgilar AI uchun **ko'rsatma** bo'ladi, natijada esa ko'rinmaydi;
+  - nima qilishni o'zbekcha yozasiz yoki **12 ta tayyor shablondan** birini tanlaysiz (Real foto, Interyer, Eksteryer, Mahsulot, Chizmadan real, Portret, Reklama, Fon almashtirish, Sifatni oshirish, 3D render, Kechki ko'rinish, Ortiqchani o'chirish);
+  - **Real rasm qilish** (`Ctrl+Enter`) natijani oynada ko'rsatadi va **tanlangan papkaga saqlaydi**.
 
 ## Boshqaruv
 
+- Ochilganda menyu **bir marta ko'rinadi, keyin fonga o'tadi**: ekran chetiga kirib, shaffof chiziq bo'lib turadi. Kursor chiziqqa borishi bilan menyu chiqib keladi.
 - Ekranda faqat ikonkalar turadi. **Yozuv faqat kursor ikonka ustiga borganda** chiqadi.
-- **Avtomatik yashirinish:** kursor dasturdan chiqishi bilan menyu yaqin chetga (chap yoki o'ng) sirpanib kirib ketadi va o'rnida **shaffof uzun chiziq** qoladi. Kursor chiziqqa borishi bilan menyu o'sha joydan chiqib keladi. Panelda ishlab bo'lib boshqa oynaga o'tsangiz, panel o'zi yopiladi (yozgan matningiz saqlanib qoladi). Bu funksiyani Sozlamalardan o'chirish mumkin.
-- Eng tepada **⋮⋮ tutqich** joylashgan: sudrab, menyuni yuqoriga/pastga yoki boshqa chetga olib o'tasiz. Yashirinish o'chirilgan bo'lsa, oyna istalgan joyda qotib turadi. Yonidagi **✕** dasturni yopadi.
-- Dastur **taskbarda** ham ko'rinadi va orqa fonda ishlab turadi (soat yonidagi trey ikonkasi ham bor).
-- 📌 **Qadash** tugmasi tepada turadi: oynani hamma dasturlar ustida ushlab turadi.
-- **⚙ Sozlamalar** ichida:
-  - API kalit va model;
-  - **o'lcham**: Kichik / O'rta / Katta / Juda katta;
-  - **rang**: asl rang yoki boshqa rang (chet chizig'i va tugmalar uchun), chiziq shaffofligi;
-  - avtomatik yashirinish va **kompyuter yonganda o'zi ishga tushish**;
-  - funksiyalarni yoqish/o'chirish;
-  - **yozishmalar papkasi** (Hujjatlar\AI Yordamchi): har kun uchun alohida `.md` fayl;
-  - **by Sunnatilla Designer** yozuvi: bosilsa https://sunnatilla-designer.uz/ sayti ochiladi.
-- `Ctrl+Enter` yuboradi, `Esc` panelni yopadi.
+- **Taskbarda ko'rinmaydi.** Soat yonidagi trey ikonkasidan boshqariladi.
+- **Kompyuter yonganda o'zi ishga tushadi** (Sozlamalarda o'chirsa bo'ladi).
+- Tepada **⋮⋮ tutqich** (sudrash) va **✕** (chiqish), uning ostida 📌 qadash.
+- **⚙ Sozlamalar:** API kalit va model; o'lcham; rang; yashirinish; avto-ishga tushish; funksiyalarni yoqish/o'chirish; PrintScreen/Win+Shift+S; skrinshotni avto-saqlash; "sifatni oshiraymi" so'rovi; AI rasm modeli; **rasmlar saqlanadigan papka (o'zingiz tanlaysiz)**; yozishmalar papkasi; **by Sunnatilla Designer** havolasi.
 
 ## O'zingiz yig'moqchi bo'lsangiz
 

@@ -1,21 +1,28 @@
 """
-AI Yordamchi — ekranda hamma dasturlar ustida turadigan, ChatGPT API asosidagi kichik yordamchi.
+AI Yordamchi — ekranda turadigan, ChatGPT (OpenAI API) asosidagi yordamchi.
 
-Funksiyalar (Sozlamalarda yoqib/o'chirsa bo'ladi):
+Matn funksiyalari (Sozlamalarda yoqib/o'chirsa bo'ladi):
   1. Tarjima                 (Ctrl+1)
-  2. Grammatikani to'g'rilash(Ctrl+2)  – xatolarni topib, matnni ma'noli qilib to'g'rilaydi
-  3. Yangi alifbo (Ö Ğ Ş Ç)  (Ctrl+3)  – xatolarni to'g'rilab, yangi o'zbek lotin alifbosida yozadi
-  4. Kirill                  (Ctrl+4)  – xatolarni to'g'rilab, o'zbek kirill yozuvida yozadi
-  5. Inglizcha qidiruv       (Ctrl+5)  – narsa nomi/xususiyatini ingliz tilida nima deb izlashni aytadi
+  2. Grammatikani to'g'rilash(Ctrl+2)
+  3. Yangi alifbo (Ö Ğ Ş Ç)  (Ctrl+3)
+  4. Kirill                  (Ctrl+4)
+  5. Inglizcha qidiruv       (Ctrl+5)
 
-Kursor chiqib ketsa, menyu yaqin chetga kirib ketadi va shaffof chiziq bo'lib turadi;
-kursor kelishi bilan o'sha joydan chiqib keladi. O'lcham, rang va funksiyalar Sozlamalarda. Barcha yozishmalar "Hujjatlar/AI Yordamchi" papkasida saqlanadi.
+Skrinshot va rasm:
+  - PrintScreen yoki Win+Shift+S — oddiy skrinshot: nusxalanadi, tanlangan papkaga saqlanadi
+    va "Sifatini oshiraymi?" deb so'raladi (2x kattalashtirish + tiniqlashtirish).
+  - AI rasm — skrinshot ustiga chizib/yozib, shablon yoki ko'rsatma bilan real rasmga aylantirish.
+
+Ochilganda bir marta ko'rinadi, keyin ekran chetiga kirib shaffof chiziq bo'lib turadi.
+Taskbarda ko'rinmaydi (trey ikonkasi bor), kompyuter yonganda o'zi ishga tushadi.
 
 by Sunnatilla Designer — https://sunnatilla-designer.uz/
 """
 
+import base64
 import datetime
 import json
+import math
 import os
 import re
 import sys
@@ -23,21 +30,24 @@ import time
 import urllib.parse
 
 import requests
-from PySide6.QtCore import (QByteArray, QEasingCurve, QEvent,
-                            QParallelAnimationGroup, QPoint, QPropertyAnimation,
-                            QRect, QRectF, QSize, QStandardPaths, Qt, QThread,
-                            QTimer, QUrl, Signal)
-from PySide6.QtGui import (QColor, QCursor, QDesktopServices, QGuiApplication,
-                           QIcon, QKeySequence, QLinearGradient, QPainter,
-                           QPixmap, QShortcut)
+from PySide6.QtCore import (QAbstractNativeEventFilter, QBuffer, QByteArray,
+                            QEasingCurve, QEvent, QIODevice,
+                            QParallelAnimationGroup, QPoint, QPointF,
+                            QPropertyAnimation, QRect, QRectF, QSize,
+                            QStandardPaths, Qt, QThread, QTimer, QUrl, Signal)
+from PySide6.QtGui import (QColor, QCursor, QDesktopServices, QFont,
+                           QGuiApplication, QIcon, QImage, QKeySequence,
+                           QLinearGradient, QPainter, QPainterPath, QPen,
+                           QPixmap, QPolygonF, QShortcut)
 from PySide6.QtSvg import QSvgRenderer
 from PySide6.QtWidgets import (QApplication, QButtonGroup, QCheckBox,
-                               QColorDialog, QComboBox, QDialog, QFrame,
-                               QGraphicsDropShadowEffect, QHBoxLayout, QLabel,
-                               QLineEdit, QMenu, QPlainTextEdit, QPushButton,
-                               QScrollArea, QSlider, QSystemTrayIcon,
-                               QToolButton,
-                               QVBoxLayout, QWidget)
+                               QColorDialog, QComboBox, QDialog, QFileDialog,
+                               QFrame, QGraphicsDropShadowEffect, QGridLayout,
+                               QHBoxLayout, QLabel, QLineEdit, QMenu,
+                               QPlainTextEdit, QProgressBar, QPushButton,
+                               QScrollArea, QSizeGrip, QSlider,
+                               QSystemTrayIcon, QToolButton, QVBoxLayout,
+                               QWidget)
 
 APP_NAME = "AI Yordamchi"
 API_URL = "https://api.openai.com/v1/chat/completions"
@@ -166,6 +176,35 @@ ICONS = {
     "logo": '<path d="M12 3l1.9 4.6L18.5 9.5l-4.6 1.9L12 16l-1.9-4.6L5.5 9.5l4.6-1.9z" '
             'fill="{c}"/><path d="M19 15l.8 1.9 1.9.8-1.9.8L19 20.4l-.8-1.9-1.9-.8 1.9-.8z" '
             'fill="{c}"/>',
+    "camera": '<path d="M3 8V5.5A2.5 2.5 0 0 1 5.5 3H8M16 3h2.5A2.5 2.5 0 0 1 21 5.5V8M21 16v2.5'
+              'a2.5 2.5 0 0 1-2.5 2.5H16M8 21H5.5A2.5 2.5 0 0 1 3 18.5V16" stroke-width="2.9"/>'
+              '<circle cx="12" cy="12" r="3.8" fill="{c}" stroke="none"/>',
+    "image": '<rect x="2.5" y="3.5" width="19" height="17" rx="3" stroke-width="2.7"/>'
+             '<circle cx="8.6" cy="9" r="2.1" fill="{c}" stroke="none"/>'
+             '<path d="M4.2 19.3 9.6 13.2l3.6 4 2.6-2.7 4.4 4.8z" fill="{c}" stroke="none"/>',
+    "pen": '<path fill="{c}" stroke-width="1.4" d="M16.5 3.2a2.4 2.4 0 0 1 3.4 0l.9.9a2.4 2.4 0 0 '
+           '1 0 3.4L9 19.3l-5 1.4 1.4-5z"/>',
+    "marker": '<path fill="{c}" stroke-width="1.4" d="m9 11 6.5-6.5a2.1 2.1 0 0 1 3 0l1 1a2.1 2.1 0 '
+              '0 1 0 3L13 15z"/><path d="m9 11-2.6 2.6 4 4L13 15" stroke-width="2.4"/>'
+              '<path d="M6.4 17.6 4 20h5" stroke-width="2.4"/>',
+    "arrow": '<path d="M5 19 18 6" stroke-width="3.2"/><path d="M9 5.5h9.5V15" stroke-width="3.2"/>',
+    "rect": '<rect x="3.5" y="5" width="17" height="14" rx="2.5" stroke-width="3"/>',
+    "ellipse": '<ellipse cx="12" cy="12" rx="9" ry="7.5" stroke-width="3"/>',
+    "text": '<path d="M5 7V4.5h14V7M12 4.5v15M8.8 19.5h6.4" stroke-width="3.2"/>',
+    "undo": '<path d="M9 14 4 9l5-5" stroke-width="3"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" '
+            'stroke-width="3"/>',
+    "redo": '<path d="m15 14 5-5-5-5" stroke-width="3"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13" '
+            'stroke-width="3"/>',
+    "sparkle": '<path d="M11 2.5l2.1 5.6 5.6 2.1-5.6 2.1L11 17.9l-2.1-5.6-5.6-2.1 5.6-2.1z" '
+               'fill="{c}" stroke-width="1.2"/><path d="M19 14.5l.9 2.3 2.3.9-2.3.9-.9 2.3-.9-2.3'
+               '-2.3-.9 2.3-.9z" fill="{c}" stroke-width="1"/>',
+    "save": '<path d="M12 3v11.5" stroke-width="3"/><path d="m7 10 5 5 5-5" stroke-width="3"/>'
+            '<path d="M4 17v2.5A1.5 1.5 0 0 0 5.5 21h13a1.5 1.5 0 0 0 1.5-1.5V17" stroke-width="3"/>',
+    "eye": '<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" stroke-width="2.7"/>'
+           '<circle cx="12" cy="12" r="3.3" fill="{c}" stroke="none"/>',
+    "dot1": '<circle cx="12" cy="12" r="2.4" fill="{c}" stroke="none"/>',
+    "dot2": '<circle cx="12" cy="12" r="4.2" fill="{c}" stroke="none"/>',
+    "dot3": '<circle cx="12" cy="12" r="6.4" fill="{c}" stroke="none"/>',
 }
 
 
@@ -314,6 +353,14 @@ MODES = [
 ]
 MODE_BY_KEY = {m["key"]: m for m in MODES}
 
+# Menyudagi rasm asboblari (Sozlamalarda yoqib/o'chirsa bo'ladi)
+EXTRA_TOOLS = [
+    {"key": "shot", "icon": "camera", "title": "Skrinshot olish", "shortcut": "PrtSc"},
+    {"key": "aiimage", "icon": "sparkle", "title": "AI rasm (skrinshot → real rasm)",
+     "shortcut": ""},
+]
+TOOL_KEYS = [m["key"] for m in MODES] + [t["key"] for t in EXTRA_TOOLS]
+
 PLAIN_RULE = ("\n\nIMPORTANT: answer in plain text only. Never use emojis, markdown (**, #, `), "
               "bullet points, quotation marks around the answer, headings, labels like "
               "'Translation:' or any comments. Output only the result itself.")
@@ -364,8 +411,10 @@ def config_path() -> str:
 def load_config() -> dict:
     cfg = {"api_key": "", "model": DEFAULT_MODEL, "rx": None, "ry": None,
            "pinned": True, "lang": "O'zbekcha (lotin)", "size": "O'rta",
-           "modes": [m["key"] for m in MODES], "auto_hide": True, "color": C_ACCENT,
-           "line_opacity": 55, "autostart": False}
+           "modes": list(TOOL_KEYS), "auto_hide": True, "color": C_ACCENT,
+           "line_opacity": 55, "autostart": True, "image_model": "auto", "save_dir": "",
+           "hook_keys": True, "shot_autosave": True, "shot_ask": True,
+           "out_size": "Avto", "quality": "Avto"}
     try:
         with open(config_path(), encoding="utf-8") as f:
             cfg.update(json.load(f))
@@ -377,7 +426,17 @@ def load_config() -> dict:
         cfg["lang"] = "O'zbekcha (lotin)"
     if cfg.get("size") not in SCALES:
         cfg["size"] = "O'rta"
-    cfg["modes"] = [k for k in cfg.get("modes", []) if k in MODE_BY_KEY]
+    if not cfg.get("v3"):
+        # yangi versiyaga o'tish: rasm asboblari va avto-ishga tushish yoqiladi
+        cfg["modes"] = list(dict.fromkeys(list(cfg.get("modes", [])) +
+                                          [t["key"] for t in EXTRA_TOOLS]))
+        cfg["autostart"] = True
+        cfg["v3"] = True
+    cfg["modes"] = [k for k in cfg.get("modes", []) if k in TOOL_KEYS]
+    if cfg.get("out_size") not in SIZES:
+        cfg["out_size"] = "Avto"
+    if cfg.get("quality") not in QUALITIES:
+        cfg["quality"] = "Avto"
     if not QColor(str(cfg.get("color"))).isValid():
         cfg["color"] = C_ACCENT
     try:
@@ -694,6 +753,58 @@ class SettingsDialog(QDialog):
             c.setCursor(Qt.PointingHandCursor)
             lay.addWidget(c)
             self.mode_checks[m["key"]] = c
+        for t in EXTRA_TOOLS:
+            c = QCheckBox(f"  {t['title']}" + (f"   ·   {t['shortcut']}" if t["shortcut"] else ""))
+            c.setIcon(svg_icon(t["icon"], C_ICON, isz))
+            c.setIconSize(QSize(isz, isz))
+            c.setChecked(t["key"] in cfg.get("modes", []))
+            c.setCursor(Qt.PointingHandCursor)
+            lay.addWidget(c)
+            self.mode_checks[t["key"]] = c
+
+        # Skrinshot va AI rasm
+        lay.addSpacing(int(8 * s))
+        lay.addWidget(self._section("Skrinshot va AI rasm"))
+        self.hook_keys = QCheckBox("  PrintScreen va Win+Shift+S bosilganda shu dastur ishlasin")
+        self.hook_keys.setChecked(cfg.get("hook_keys", True))
+        self.hook_keys.setEnabled(sys.platform == "win32")
+        lay.addWidget(self.hook_keys)
+        self.shot_autosave = QCheckBox("  Skrinshotni papkaga avtomatik saqlash")
+        self.shot_autosave.setChecked(cfg.get("shot_autosave", True))
+        lay.addWidget(self.shot_autosave)
+        self.shot_ask = QCheckBox("  Skrinshotdan keyin so'rasin: sifatini oshirish / AI rasm")
+        self.shot_ask.setChecked(cfg.get("shot_ask", True))
+        lay.addWidget(self.shot_ask)
+        for c in (self.hook_keys, self.shot_autosave, self.shot_ask):
+            c.setCursor(Qt.PointingHandCursor)
+        irow = QHBoxLayout()
+        irow.addWidget(QLabel("AI rasm modeli:"))
+        self.image_model = QComboBox()
+        self.image_model.setEditable(True)
+        self.image_model.addItems(["auto"] + IMAGE_MODELS)
+        self.image_model.setCurrentText(cfg.get("image_model", "auto"))
+        self.image_model.setToolTip("auto — hisobingizda ishlaydigan eng yangi modelni o'zi tanlaydi")
+        irow.addWidget(self.image_model, 1)
+        lay.addLayout(irow)
+        lay.addWidget(QLabel("Tayyor rasmlar saqlanadigan papka:"))
+        drow = QHBoxLayout()
+        self.save_dir = cfg.get("save_dir") or ""
+        self.save_lbl = QLabel(self.save_dir or images_dir(cfg))
+        self.save_lbl.setObjectName("muted")
+        self.save_lbl.setWordWrap(True)
+        self.save_lbl.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        drow.addWidget(self.save_lbl, 1)
+        pick = QPushButton("  Tanlash…")
+        pick.setIcon(svg_icon("folder", C_ICON, int(18 * s)))
+        pick.setCursor(Qt.PointingHandCursor)
+        pick.clicked.connect(self._pick_dir)
+        drow.addWidget(pick)
+        opn = QPushButton("Ochish")
+        opn.setCursor(Qt.PointingHandCursor)
+        opn.clicked.connect(lambda: QDesktopServices.openUrl(
+            QUrl.fromLocalFile(self.save_dir or images_dir(cfg))))
+        drow.addWidget(opn)
+        lay.addLayout(drow)
 
         # Yozishmalar papkasi
         lay.addSpacing(int(8 * s))
@@ -778,6 +889,13 @@ class SettingsDialog(QDialog):
             self.custom_sw.setVisible(True)
             self.custom_sw.setChecked(True)
 
+    def _pick_dir(self):
+        d = QFileDialog.getExistingDirectory(self, "Rasmlar saqlanadigan papkani tanlang",
+                                             self.save_lbl.text())
+        if d:
+            self.save_dir = d
+            self.save_lbl.setText(d)
+
     def values(self):
         size = self.size_group.checkedButton().text() if self.size_group.checkedButton() \
             else "O'rta"
@@ -787,12 +905,1326 @@ class SettingsDialog(QDialog):
                 "size": size, "modes": modes, "color": self.color,
                 "auto_hide": self.auto_hide.isChecked(),
                 "line_opacity": self.opacity.value(),
-                "autostart": self.autostart.isChecked()}
+                "autostart": self.autostart.isChecked(),
+                "hook_keys": self.hook_keys.isChecked(),
+                "shot_autosave": self.shot_autosave.isChecked(),
+                "shot_ask": self.shot_ask.isChecked(),
+                "image_model": self.image_model.currentText().strip() or "auto",
+                "save_dir": self.save_dir}
 
 
 # ---------------------------------------------------------------------------
 # Asosiy oyna
 # ---------------------------------------------------------------------------
+# ===========================================================================
+# SKRINSHOT VA AI RASM
+# ===========================================================================
+# "auto" tanlansa — shu tartibda sinab ko'riladi (qaysi biri hisobingizda ishlasa)
+IMAGE_MODELS = ["gpt-image-2", "gpt-image-1.5", "gpt-image-1"]
+API_EDIT = "https://api.openai.com/v1/images/edits"
+PEN_COLORS = ["#EF4444", "#F59E0B", "#22C55E", "#3B82F6", "#111827", "#FFFFFF"]
+
+TEMPLATES = [
+    ("Real foto", "Ekrandagi tasvirni haqiqiy fotosuratga aylantiradi",
+     "Transform this image (a screenshot, render, drawing or mockup) into a photorealistic "
+     "photograph taken with a professional camera: natural lighting, real materials and "
+     "textures, realistic shadows and reflections. Keep the same composition, layout, "
+     "perspective, objects and colors."),
+    ("Interyer", "Xona dizaynini real interyer fotosuratiga aylantiradi",
+     "Turn this into a photorealistic interior photograph like in an architecture magazine: "
+     "soft natural daylight, realistic furniture, fabrics, wood, stone and glass materials, "
+     "accurate proportions. Keep the same room layout, furniture placement and color scheme."),
+    ("Eksteryer", "Bino yoki hovlini real fotosuratga aylantiradi",
+     "Turn this into a photorealistic architectural exterior photograph: realistic facade "
+     "materials, real sky and daylight, natural landscaping and surroundings. Keep the same "
+     "building shape, proportions, colors and camera angle."),
+    ("Mahsulot", "Professional studiya mahsulot fotosurati",
+     "Create a professional studio product photograph of the object in this image: clean "
+     "background, softbox lighting, realistic reflections and shadows, e-commerce quality. "
+     "Keep the product's exact shape, colors, logos and details."),
+    ("Chizmadan real", "Qo'lda chizilgan rasm yoki eskizni realga aylantiradi",
+     "This is a sketch or drawing. Create a realistic photograph of what it depicts, faithful "
+     "to the shapes, proportions, positions and colors of the drawing."),
+    ("Portret", "Odamni tabiiy, real fotosurat ko'rinishiga keltiradi",
+     "Make the person in this image look like a real high-quality photograph: natural skin "
+     "texture, realistic hair and lighting. Keep the same identity, face, pose, clothing and "
+     "background composition."),
+    ("Reklama", "Reklama banneri uchun sifatli, jozibali rasm",
+     "Turn this into a polished, high-end advertising image: vibrant but natural colors, "
+     "professional commercial lighting, crisp details. Keep all text readable and the layout "
+     "the same."),
+    ("Fon almashtirish", "Asosiy obyektni saqlab, fonni real fonga almashtiradi",
+     "Keep the main subject exactly as it is and replace the background with a realistic, "
+     "fitting, high-quality photographic environment with matching lighting and shadows."),
+    ("Sifatni oshirish", "Tiniqlik, ranglar va detallarni yaxshilaydi (AI)",
+     "Enhance this image: increase sharpness and fine detail, remove noise, blur and "
+     "compression artifacts, improve lighting and colors. Keep everything else identical."),
+    ("3D render", "Fotorealistik 3D render ko'rinishi",
+     "Turn this into a high-quality photorealistic 3D render with physically based materials, "
+     "global illumination and realistic depth of field. Keep the same composition."),
+    ("Kechki ko'rinish", "Shu joyni kechki/tungi yoritishda ko'rsatadi",
+     "Show the same scene in the evening at dusk with realistic warm artificial lighting, "
+     "glowing windows and lamps, photorealistic. Keep the same composition and objects."),
+    ("Ortiqchani o'chirish", "Belgilangan narsalarni olib tashlaydi",
+     "Remove the objects that are circled, crossed out or pointed at by the drawn marks, and "
+     "fill those areas naturally so it looks like they were never there. Keep everything else "
+     "unchanged."),
+]
+
+MARKS_RULE = ("The colored strokes, arrows, boxes, circles and handwritten text drawn on top of "
+              "the image are the user's annotations and instructions, not part of the scene. "
+              "Follow them (they point at areas to change or say what to do) and make sure no "
+              "annotation marks or annotation text appear in the final image.")
+
+SIZES = {"Avto": "auto", "Kvadrat (1:1)": "1024x1024", "Yotiq (3:2)": "1536x1024",
+         "Tik (2:3)": "1024x1536"}
+QUALITIES = {"Avto": "auto", "Past (tez)": "low", "O'rta": "medium", "Yuqori": "high"}
+
+
+def default_images_dir() -> str:
+    pics = QStandardPaths.writableLocation(QStandardPaths.PicturesLocation) or \
+        os.path.join(os.path.expanduser("~"), "Pictures")
+    return os.path.join(pics, APP_NAME)
+
+
+def images_dir(cfg: dict) -> str:
+    """Rasmlar saqlanadigan papka (Sozlamalarda tanlanadi)."""
+    for d in (cfg.get("save_dir") or "", default_images_dir()):
+        if not d:
+            continue
+        try:
+            os.makedirs(d, exist_ok=True)
+            return d
+        except OSError:
+            continue
+    return os.path.expanduser("~")
+
+
+def open_images_dir(cfg: dict):
+    QDesktopServices.openUrl(QUrl.fromLocalFile(images_dir(cfg)))
+
+
+def stamp() -> str:
+    return datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+
+
+def image_to_png(img: QImage) -> bytes:
+    buf = QBuffer()
+    buf.open(QIODevice.WriteOnly)
+    img.save(buf, "PNG")
+    return bytes(buf.data())
+
+
+class ImageWorker(QThread):
+    """Rasmni OpenAI rasm modeliga yuborib, real rasm oladi."""
+    done = Signal(bytes, str, str)     # natija PNG, model, yakuniy prompt
+    failed = Signal(str)
+    progress = Signal(str)
+
+    def __init__(self, cfg, png, template_prompt, user_text, has_marks):
+        super().__init__()
+        self.cfg, self.png = dict(cfg), png
+        self.template_prompt, self.user_text, self.has_marks = template_prompt, user_text, has_marks
+
+    def _translate(self, text):
+        try:
+            r = requests.post(
+                API_URL,
+                headers={"Authorization": f"Bearer {self.cfg['api_key']}"},
+                json={"model": self.cfg.get("model", DEFAULT_MODEL), "temperature": 0,
+                      "messages": [{"role": "system", "content":
+                                    "Translate the user's image-editing instruction into clear, "
+                                    "precise English. Output only the translation, plain text."},
+                                   {"role": "user", "content": text}]},
+                timeout=40)
+            if r.status_code == 200:
+                return r.json()["choices"][0]["message"]["content"].strip() or text
+        except Exception:
+            pass
+        return text
+
+    @staticmethod
+    def _model_problem(status, msg):
+        m = msg.lower()
+        return status in (403, 404) or ("model" in m and any(
+            k in m for k in ("not found", "does not exist", "invalid", "unsupported",
+                             "not supported", "access", "verif")))
+
+    def run(self):
+        try:
+            parts = []
+            if self.template_prompt:
+                parts.append(self.template_prompt)
+            if self.user_text.strip():
+                self.progress.emit("Ko'rsatma tayyorlanmoqda…")
+                parts.append("User's instructions: " + self._translate(self.user_text.strip()))
+            if not parts:
+                parts.append(TEMPLATES[0][2])
+            if self.has_marks:
+                parts.append(MARKS_RULE)
+            prompt = "\n\n".join(parts)
+            chosen = self.cfg.get("image_model", "auto")
+            models = IMAGE_MODELS if chosen in ("", "auto") else [chosen]
+            size = SIZES.get(self.cfg.get("out_size"), "auto")
+            quality = QUALITIES.get(self.cfg.get("quality"), "auto")
+            last = "Noma'lum xato"
+            for i, model in enumerate(models):
+                self.progress.emit("Rasm yaratilmoqda… (30–120 soniya)")
+                data = {"model": model, "prompt": prompt, "n": "1", "size": size}
+                if quality != "auto":
+                    data["quality"] = quality
+                r = requests.post(API_EDIT,
+                                  headers={"Authorization": f"Bearer {self.cfg['api_key']}"},
+                                  data=data,
+                                  files={"image": ("image.png", self.png, "image/png")},
+                                  timeout=300)
+                if r.status_code == 200:
+                    item = r.json()["data"][0]
+                    if item.get("b64_json"):
+                        out = base64.b64decode(item["b64_json"])
+                    else:
+                        out = requests.get(item["url"], timeout=120).content
+                    self.done.emit(out, model, prompt)
+                    return
+                try:
+                    msg = r.json()["error"]["message"]
+                except Exception:
+                    msg = r.text[:300]
+                last = f"Xato {r.status_code}: {msg}"
+                if i < len(models) - 1 and self._model_problem(r.status_code, msg):
+                    continue
+                break
+            self.failed.emit(last)
+        except requests.exceptions.ConnectionError:
+            self.failed.emit("Internetga ulanib bo'lmadi.")
+        except requests.exceptions.Timeout:
+            self.failed.emit("Server javob bermadi (vaqt tugadi). Qayta urinib ko'ring.")
+        except Exception as e:  # noqa: BLE001
+            self.failed.emit(f"Xato: {e}")
+
+
+def enhance_png(png: bytes):
+    """Skrinshot sifatini oshirish: 2 barobar kattalashtirish + tiniqlashtirish (bepul, tez)."""
+    try:
+        import io
+        from PIL import Image, ImageEnhance, ImageFilter
+        im = Image.open(io.BytesIO(png))
+        im.load()
+        im = im.convert("RGB")
+        w, h = im.size
+        f = 2.0 if max(w, h) <= 2400 else (1.5 if max(w, h) <= 3600 else 1.0)
+        if f > 1:
+            im = im.resize((round(w * f), round(h * f)), Image.LANCZOS)
+        im = im.filter(ImageFilter.UnsharpMask(radius=1.4, percent=120, threshold=2))
+        im = ImageEnhance.Contrast(im).enhance(1.04)
+        buf = io.BytesIO()
+        im.save(buf, "PNG")
+        return buf.getvalue(), im.size[0], im.size[1]
+    except ImportError:
+        img = QImage.fromData(png)
+        f = 2 if max(img.width(), img.height()) <= 2400 else 1
+        img = img.scaled(img.width() * f, img.height() * f, Qt.KeepAspectRatio,
+                         Qt.SmoothTransformation)
+        return image_to_png(img), img.width(), img.height()
+
+
+class EnhanceWorker(QThread):
+    done = Signal(bytes, int, int)
+    failed = Signal(str)
+
+    def __init__(self, png):
+        super().__init__()
+        self.png = png
+
+    def run(self):
+        try:
+            self.done.emit(*enhance_png(self.png))
+        except Exception as e:  # noqa: BLE001
+            self.failed.emit(f"Sifatni oshirib bo'lmadi: {e}")
+
+
+# ---------------------------------------------------------------------------
+# PrintScreen va Win+Shift+S ni ushlash (Windows)
+# ---------------------------------------------------------------------------
+class KeyboardHook:
+    """PrintScreen yoki Win+Shift+S bosilganda Windows vositasi o'rniga shu dastur ishlaydi."""
+    VK_SNAPSHOT, VK_S = 0x2C, 0x53
+    WIN_KEYS, SHIFT_KEYS = (0x5B, 0x5C), (0x10, 0xA0, 0xA1)
+
+    def __init__(self, callback):
+        self.callback = callback
+        self.hook = None
+        self.down = set()
+        self.snap_down = False
+        self.s_eaten = False
+        if sys.platform != "win32":
+            return
+        try:
+            import ctypes
+            from ctypes import wintypes
+            self.ct = ctypes
+            self.user32 = ctypes.WinDLL("user32", use_last_error=True)
+            kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+
+            class KBD(ctypes.Structure):
+                _fields_ = [("vkCode", wintypes.DWORD), ("scanCode", wintypes.DWORD),
+                            ("flags", wintypes.DWORD), ("time", wintypes.DWORD),
+                            ("dwExtraInfo", ctypes.c_size_t)]
+            self.KBD = KBD
+            LRESULT = ctypes.c_ssize_t
+            HOOKPROC = ctypes.WINFUNCTYPE(LRESULT, ctypes.c_int, wintypes.WPARAM, wintypes.LPARAM)
+            self.user32.SetWindowsHookExW.argtypes = [ctypes.c_int, HOOKPROC, wintypes.HINSTANCE,
+                                                      wintypes.DWORD]
+            self.user32.SetWindowsHookExW.restype = wintypes.HHOOK
+            self.user32.CallNextHookEx.argtypes = [wintypes.HHOOK, ctypes.c_int, wintypes.WPARAM,
+                                                   wintypes.LPARAM]
+            self.user32.CallNextHookEx.restype = LRESULT
+            self.user32.UnhookWindowsHookEx.argtypes = [wintypes.HHOOK]
+            kernel32.GetModuleHandleW.restype = wintypes.HMODULE
+            self.proc = HOOKPROC(self._proc)          # havolani saqlab qo'yamiz (GC o'chirmasin)
+            self.hook = self.user32.SetWindowsHookExW(13, self.proc,                # WH_KEYBOARD_LL
+                                                      kernel32.GetModuleHandleW(None), 0)
+        except Exception:
+            self.hook = None
+
+    @property
+    def ok(self):
+        return bool(self.hook)
+
+    def _fire(self):
+        QTimer.singleShot(0, self.callback)
+
+    def _mask_start_menu(self):
+        # Win tugmasi qo'yib yuborilganda Start menyusi ochilib ketmasligi uchun
+        try:
+            self.user32.keybd_event(0xE8, 0, 0, 0)
+            self.user32.keybd_event(0xE8, 0, 2, 0)
+        except Exception:
+            pass
+
+    def _proc(self, ncode, wparam, lparam):
+        try:
+            if ncode == 0:
+                kb = self.ct.cast(lparam, self.ct.POINTER(self.KBD)).contents
+                vk, injected = kb.vkCode, kb.flags & 0x10
+                is_down = wparam in (0x100, 0x104)
+                is_up = wparam in (0x101, 0x105)
+                if not injected:
+                    if is_down:
+                        self.down.add(vk)
+                    elif is_up:
+                        self.down.discard(vk)
+                    if vk == self.VK_SNAPSHOT:
+                        if is_down and not self.snap_down:
+                            self.snap_down = True
+                            self._fire()
+                        elif is_up:
+                            if not self.snap_down:
+                                self._fire()
+                            self.snap_down = False
+                        return 1
+                    if vk == self.VK_S:
+                        win = any(k in self.down for k in self.WIN_KEYS)
+                        shift = any(k in self.down for k in self.SHIFT_KEYS)
+                        if is_down and win and shift:
+                            self.s_eaten = True
+                            self._mask_start_menu()
+                            self._fire()
+                            return 1
+                        if is_up and self.s_eaten:
+                            self.s_eaten = False
+                            return 1
+        except Exception:
+            pass
+        return self.user32.CallNextHookEx(self.hook, ncode, wparam, lparam)
+
+    def unhook(self):
+        if self.hook:
+            try:
+                self.user32.UnhookWindowsHookEx(self.hook)
+            except Exception:
+                pass
+            self.hook = None
+
+
+class GlobalHotkey(QAbstractNativeEventFilter):
+    """Zaxira tugma: Ctrl+Alt+S (Windows)."""
+    HK_ID = 0xA51
+
+    def __init__(self, callback):
+        super().__init__()
+        self.callback = callback
+        self.ok = False
+        if sys.platform != "win32":
+            return
+        try:
+            import ctypes
+            self.user32 = ctypes.windll.user32
+            self.ok = bool(self.user32.RegisterHotKey(None, self.HK_ID, 0x0002 | 0x0001 | 0x4000,
+                                                      0x53))
+        except Exception:
+            self.ok = False
+
+    def nativeEventFilter(self, event_type, message):
+        try:
+            if self.ok and bytes(event_type) in (b"windows_generic_MSG", b"windows_dispatcher_MSG"):
+                import ctypes.wintypes
+                msg = ctypes.wintypes.MSG.from_address(int(message))
+                if msg.message == 0x0312 and msg.wParam == self.HK_ID:
+                    QTimer.singleShot(0, self.callback)
+                    return True, 0
+        except Exception:
+            pass
+        return False, 0
+
+    def unregister(self):
+        if self.ok:
+            try:
+                self.user32.UnregisterHotKey(None, self.HK_ID)
+            except Exception:
+                pass
+
+
+# ---------------------------------------------------------------------------
+# Skrinshot: ekranda joy belgilash
+# ---------------------------------------------------------------------------
+class CaptureOverlay(QWidget):
+    captured = Signal(QImage)
+    cancelled = Signal()
+
+    def __init__(self, screen, pixmap):
+        super().__init__(None, Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
+        self.pm = pixmap
+        self.start = None
+        self.end = None
+        self.setCursor(Qt.CrossCursor)
+        self.setGeometry(screen.geometry())
+        self.setFocusPolicy(Qt.StrongFocus)
+
+    def sel_rect(self):
+        if self.start is None or self.end is None:
+            return QRect()
+        return QRect(self.start, self.end).normalized()
+
+    def paintEvent(self, e):
+        p = QPainter(self)
+        p.drawPixmap(self.rect(), self.pm)
+        p.fillRect(self.rect(), QColor(10, 12, 20, 110))
+        r = self.sel_rect()
+        dpr = self.pm.devicePixelRatio()
+        if not r.isEmpty():
+            src = QRect(int(r.x() * dpr), int(r.y() * dpr), int(r.width() * dpr),
+                        int(r.height() * dpr))
+            p.drawPixmap(r, self.pm, src)
+            p.setPen(QPen(QColor("#FFFFFF"), 2))
+            p.drawRect(r.adjusted(0, 0, -1, -1))
+            p.drawText(r.left(), max(16, r.top() - 8),
+                       f"{int(r.width() * dpr)} × {int(r.height() * dpr)}")
+        hint = "Joyni belgilang  ·  Enter — butun ekran  ·  Esc — bekor qilish"
+        f = QFont("Segoe UI")
+        f.setPixelSize(15)
+        f.setBold(True)
+        p.setFont(f)
+        w = p.fontMetrics().horizontalAdvance(hint) + 36
+        box = QRectF((self.width() - w) / 2, 24, w, 40)
+        p.setPen(Qt.NoPen)
+        p.setBrush(QColor(255, 255, 255, 235))
+        p.drawRoundedRect(box, 20, 20)
+        p.setPen(QColor(C_TEXT))
+        p.drawText(box, Qt.AlignCenter, hint)
+        p.end()
+
+    def mousePressEvent(self, e):
+        if e.button() == Qt.LeftButton:
+            self.start = self.end = e.position().toPoint()
+            self.update()
+        elif e.button() == Qt.RightButton:
+            self._cancel()
+
+    def mouseMoveEvent(self, e):
+        if self.start is not None:
+            self.end = e.position().toPoint()
+            self.update()
+
+    def mouseReleaseEvent(self, e):
+        if e.button() != Qt.LeftButton or self.start is None:
+            return
+        r = self.sel_rect()
+        if r.width() < 8 or r.height() < 8:
+            self.start = self.end = None
+            self.update()
+            return
+        self._finish(r)
+
+    def keyPressEvent(self, e):
+        if e.key() == Qt.Key_Escape:
+            self._cancel()
+        elif e.key() in (Qt.Key_Return, Qt.Key_Enter):
+            self._finish(self.rect())
+
+    def _finish(self, r):
+        dpr = self.pm.devicePixelRatio()
+        src = QRect(int(r.x() * dpr), int(r.y() * dpr), int(r.width() * dpr),
+                    int(r.height() * dpr))
+        img = self.pm.copy(src).toImage()
+        img.setDevicePixelRatio(1.0)
+        self.hide()
+        self.captured.emit(img)
+        self.close()
+        self.deleteLater()
+
+    def _cancel(self):
+        self.hide()
+        self.cancelled.emit()
+        self.close()
+        self.deleteLater()
+
+
+# ---------------------------------------------------------------------------
+# Chizish maydoni
+# ---------------------------------------------------------------------------
+def draw_item(p: QPainter, it: dict):
+    t = it["t"]
+    if t == "text":
+        f = QFont("Segoe UI")
+        f.setBold(True)
+        f.setPixelSize(max(6, int(it["size"])))
+        path = QPainterPath()
+        path.addText(it["p"], f, it["s"])
+        outline = QColor("#000000") if QColor(it["c"]).lightness() > 200 else QColor("#FFFFFF")
+        p.setPen(QPen(outline, max(2.0, it["size"] / 7), Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
+        p.setBrush(Qt.NoBrush)
+        p.drawPath(path)
+        p.setPen(Qt.NoPen)
+        p.setBrush(it["c"])
+        p.drawPath(path)
+        return
+    p.setPen(QPen(it["c"], it["w"], Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
+    p.setBrush(Qt.NoBrush)
+    if t == "pen":
+        pts = it["pts"]
+        path = QPainterPath(pts[0])
+        for q in pts[1:]:
+            path.lineTo(q)
+        if len(pts) == 1:
+            path.lineTo(pts[0] + QPointF(0.01, 0.01))
+        p.drawPath(path)
+    elif t == "rect":
+        p.drawRoundedRect(QRectF(it["a"], it["b"]).normalized(), it["w"], it["w"])
+    elif t == "ellipse":
+        p.drawEllipse(QRectF(it["a"], it["b"]).normalized())
+    elif t == "arrow":
+        a, b = it["a"], it["b"]
+        ang = math.atan2(b.y() - a.y(), b.x() - a.x())
+        head = max(12.0, it["w"] * 4.2)
+        base = QPointF(b.x() - head * 0.8 * math.cos(ang), b.y() - head * 0.8 * math.sin(ang))
+        p.drawLine(a, base)
+        left = QPointF(b.x() - head * math.cos(ang - 0.45), b.y() - head * math.sin(ang - 0.45))
+        right = QPointF(b.x() - head * math.cos(ang + 0.45), b.y() - head * math.sin(ang + 0.45))
+        p.setPen(QPen(it["c"], max(1.0, it["w"] * 0.6), Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
+        p.setBrush(it["c"])
+        p.drawPolygon(QPolygonF([b, left, right]))
+
+
+class Canvas(QWidget):
+    changed = Signal()
+    UI_WIDTHS = [3, 6, 11]
+    UI_FONTS = [16, 22, 32]
+
+    def __init__(self, image: QImage):
+        super().__init__()
+        self.img = image.convertToFormat(QImage.Format_ARGB32)
+        self.items, self.redo_stack = [], []
+        self.cur = None
+        self.tool = "pen"
+        self.color = QColor(PEN_COLORS[0])
+        self.size_idx = 1
+        self.edit = None
+        self.setMinimumSize(320, 240)
+        self.setCursor(Qt.CrossCursor)
+        self.setFocusPolicy(Qt.StrongFocus)
+
+    def set_image(self, img: QImage):
+        self.img = img.convertToFormat(QImage.Format_ARGB32)
+        self.items, self.redo_stack, self.cur = [], [], None
+        self.changed.emit()
+        self.update()
+
+    def geom(self):
+        pad = 12
+        iw, ih = max(1, self.img.width()), max(1, self.img.height())
+        sc = min((self.width() - 2 * pad) / iw, (self.height() - 2 * pad) / ih, 2.0)
+        sc = max(sc, 0.01)
+        return sc, QPointF((self.width() - iw * sc) / 2, (self.height() - ih * sc) / 2)
+
+    def to_img(self, pos):
+        sc, o = self.geom()
+        return QPointF((pos.x() - o.x()) / sc, (pos.y() - o.y()) / sc)
+
+    def paintEvent(self, e):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        p.setRenderHint(QPainter.SmoothPixmapTransform)
+        sc, o = self.geom()
+        p.translate(o)
+        p.scale(sc, sc)
+        p.drawImage(0, 0, self.img)
+        for it in self.items + ([self.cur] if self.cur else []):
+            draw_item(p, it)
+        p.end()
+
+    def mousePressEvent(self, e):
+        if e.button() != Qt.LeftButton:
+            return
+        self._commit_text()
+        pos = e.position()
+        pt = self.to_img(pos)
+        sc, _ = self.geom()
+        if self.tool == "text":
+            self._start_text(pos, pt, sc)
+            return
+        w = self.UI_WIDTHS[self.size_idx] / sc
+        c = QColor(self.color)
+        if self.tool == "pen":
+            self.cur = {"t": "pen", "pts": [pt], "c": c, "w": w}
+        elif self.tool == "marker":
+            c.setAlpha(105)
+            self.cur = {"t": "pen", "pts": [pt], "c": c, "w": w * 3.2}
+        else:
+            self.cur = {"t": self.tool, "a": pt, "b": pt, "c": c, "w": w}
+        self.update()
+
+    def mouseMoveEvent(self, e):
+        if self.cur is None:
+            return
+        pt = self.to_img(e.position())
+        if self.cur["t"] == "pen":
+            self.cur["pts"].append(pt)
+        else:
+            self.cur["b"] = pt
+        self.update()
+
+    def mouseReleaseEvent(self, e):
+        if self.cur is None:
+            return
+        it, self.cur = self.cur, None
+        if it["t"] in ("rect", "ellipse", "arrow"):
+            d = it["b"] - it["a"]
+            if abs(d.x()) + abs(d.y()) < 3:
+                self.update()
+                return
+        self._push(it)
+
+    def _push(self, it):
+        self.items.append(it)
+        self.redo_stack.clear()
+        self.changed.emit()
+        self.update()
+
+    def _start_text(self, pos, pt, sc):
+        ui_px = self.UI_FONTS[self.size_idx]
+        ed = QLineEdit(self)
+        ed.setObjectName("canvasText")
+        ed.setPlaceholderText("Yozing va Enter bosing…")
+        ed.setStyleSheet(f"QLineEdit#canvasText {{ background: rgba(255,255,255,235); "
+                         f"border: 2px solid {self.color.name()}; border-radius: 8px; "
+                         f"padding: 2px 6px; font-size: {ui_px}px; font-weight: 700; "
+                         f"color: {self.color.name() if self.color.lightness() < 230 else '#111827'}; }}")
+        ed.setMinimumWidth(220)
+        ed.adjustSize()
+        ed.move(int(pos.x()), int(pos.y() - ed.height() / 2))
+        ed.show()
+        ed.setFocus()
+        ed.returnPressed.connect(self._commit_text)
+        self.edit = (ed, pt, ui_px / sc, QColor(self.color))
+
+    def _commit_text(self):
+        if not self.edit:
+            return
+        ed, pt, size_img, color = self.edit
+        self.edit = None
+        txt = ed.text().strip()
+        ed.hide()
+        ed.deleteLater()
+        if txt:
+            self._push({"t": "text", "p": QPointF(pt.x(), pt.y() + size_img * 0.38),
+                        "s": txt, "c": color, "size": size_img})
+
+    def undo(self):
+        self._commit_text()
+        if self.items:
+            self.redo_stack.append(self.items.pop())
+            self.changed.emit()
+            self.update()
+
+    def redo(self):
+        if self.redo_stack:
+            self.items.append(self.redo_stack.pop())
+            self.changed.emit()
+            self.update()
+
+    def clear_marks(self):
+        self._commit_text()
+        if self.items:
+            self.redo_stack = list(reversed(self.items))
+            self.items = []
+            self.changed.emit()
+            self.update()
+
+    def has_marks(self):
+        return bool(self.items)
+
+    def render_flat(self) -> QImage:
+        self._commit_text()
+        out = self.img.copy()
+        p = QPainter(out)
+        p.setRenderHint(QPainter.Antialiasing)
+        for it in self.items:
+            draw_item(p, it)
+        p.end()
+        return out
+
+
+# ---------------------------------------------------------------------------
+# Umumiy "kartochka" oyna (oq, yumaloq burchakli)
+# ---------------------------------------------------------------------------
+def card_btn(icon, tip, s, color=C_ICON):
+    b = QToolButton()
+    b.setObjectName("small")
+    isz = int(18 * s)
+    b.setIcon(svg_icon(icon, color, isz))
+    b.setIconSize(QSize(isz, isz))
+    b.setFixedSize(int(34 * s), int(34 * s))
+    b.setCursor(Qt.PointingHandCursor)
+    b.setToolTip(tip)
+    return b
+
+
+def section(text):
+    lbl = QLabel(text)
+    lbl.setObjectName("section")
+    return lbl
+
+
+class CardWindow(QWidget):
+    def __init__(self, ctrl, title, icon):
+        super().__init__(None, Qt.Window | Qt.FramelessWindowHint)
+        self.ctrl = ctrl
+        self.s = s = SCALES.get(ctrl.cfg.get("size"), 1.0)
+        self.accent = ctrl.cfg.get("color", C_ACCENT)
+        self.setAttribute(Qt.WA_TranslucentBackground)
+        self.setAttribute(Qt.WA_DeleteOnClose)
+        self.setWindowTitle(f"{title} — {APP_NAME}")
+        self.setWindowIcon(QIcon(app_icon()))
+        self._drag = None
+
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(16, 16, 16, 16)
+        self.card = QFrame()
+        self.card.setObjectName("card")
+        shadow(self.card, 40, 12, 45)
+        outer.addWidget(self.card)
+        lay = QVBoxLayout(self.card)
+        lay.setContentsMargins(int(18 * s), int(12 * s), int(14 * s), int(8 * s))
+        lay.setSpacing(int(10 * s))
+
+        self.header = QWidget()
+        self.header.setCursor(Qt.SizeAllCursor)
+        hl = QHBoxLayout(self.header)
+        hl.setContentsMargins(0, 0, 0, 0)
+        ic = QLabel()
+        ic.setPixmap(svg_pixmap(icon, self.accent, int(22 * s)))
+        hl.addWidget(ic)
+        hl.addSpacing(int(4 * s))
+        self.title_lbl = QLabel(title)
+        self.title_lbl.setObjectName("title")
+        hl.addWidget(self.title_lbl)
+        hl.addStretch()
+        self.header_extra = QHBoxLayout()
+        hl.addLayout(self.header_extra)
+        close = card_btn("close", "Yopish", s)
+        close.clicked.connect(self.close)
+        hl.addWidget(close)
+        self.header.installEventFilter(self)
+        lay.addWidget(self.header)
+
+        self.body = QVBoxLayout()
+        self.body.setSpacing(int(10 * s))
+        lay.addLayout(self.body, 1)
+
+        grip_row = QHBoxLayout()
+        grip_row.setContentsMargins(0, 0, 0, 0)
+        grip_row.addStretch()
+        grip_row.addWidget(QSizeGrip(self.card), 0, Qt.AlignBottom | Qt.AlignRight)
+        lay.addLayout(grip_row)
+
+    def eventFilter(self, obj, e):
+        if obj is self.header:
+            if e.type() == QEvent.MouseButtonPress and e.button() == Qt.LeftButton:
+                self._drag = e.globalPosition().toPoint() - self.frameGeometry().topLeft()
+                return True
+            if e.type() == QEvent.MouseMove and self._drag is not None:
+                if self.isMaximized():
+                    self.showNormal()
+                self.move(e.globalPosition().toPoint() - self._drag)
+                return True
+            if e.type() == QEvent.MouseButtonRelease:
+                self._drag = None
+                return True
+            if e.type() == QEvent.MouseButtonDblClick:
+                self.showNormal() if self.isMaximized() else self.showMaximized()
+                return True
+        return super().eventFilter(obj, e)
+
+    def fit_on_screen(self, w, h):
+        scr = QGuiApplication.screenAt(QCursor.pos()) or QGuiApplication.primaryScreen()
+        g = scr.availableGeometry()
+        w, h = min(w, int(g.width() * 0.94)), min(h, int(g.height() * 0.92))
+        self.resize(w, h)
+        self.move(g.center().x() - w // 2, g.center().y() - h // 2)
+
+    def closeEvent(self, e):
+        self.ctrl.forget(self)
+        super().closeEvent(e)
+
+
+# ---------------------------------------------------------------------------
+# AI rasm: tahrirlash oynasi
+# ---------------------------------------------------------------------------
+class EditorWindow(CardWindow):
+    TOOLS = [("pen", "Qalam"), ("marker", "Marker"), ("arrow", "Strelka"),
+             ("rect", "To'rtburchak"), ("ellipse", "Doira"), ("text", "Matn yozish")]
+
+    def __init__(self, ctrl, image: QImage):
+        super().__init__(ctrl, "AI rasm — tahrirlash", "image")
+        s = self.s
+        self.worker = None
+        self.template_idx = None
+        openf = card_btn("folder", "Boshqa rasm faylini ochish", s)
+        openf.clicked.connect(self._open_other)
+        self.header_extra.addWidget(openf)
+
+        row = QHBoxLayout()
+        row.setSpacing(int(14 * s))
+        self.body.addLayout(row, 1)
+
+        left = QVBoxLayout()
+        left.setSpacing(int(8 * s))
+        row.addLayout(left, 1)
+        tb_frame = QFrame()
+        tb_frame.setObjectName("toolbar")
+        tb = QHBoxLayout(tb_frame)
+        tb.setContentsMargins(int(6 * s), int(4 * s), int(6 * s), int(4 * s))
+        tb.setSpacing(int(2 * s))
+        self.tool_group = QButtonGroup(self)
+        self.tool_btns = {}
+        for key, tip in self.TOOLS:
+            b = self._tool_btn(key, tip)
+            b.clicked.connect(lambda _=False, k=key: self.set_tool(k))
+            self.tool_group.addButton(b)
+            tb.addWidget(b)
+            self.tool_btns[key] = b
+        tb.addWidget(self._vsep())
+        self.color_group = QButtonGroup(self)
+        d = int(22 * s)
+        for col in PEN_COLORS:
+            b = QPushButton()
+            b.setCheckable(True)
+            b.setFixedSize(d, d)
+            b.setCursor(Qt.PointingHandCursor)
+            ring = "#C7CBD4" if col.upper() == "#FFFFFF" else "#FFFFFF"
+            b.setStyleSheet(f"QPushButton {{ background: {col}; border: 2px solid {ring}; "
+                            f"border-radius: {d // 2}px; padding: 0; min-width: {d - 4}px; "
+                            f"max-width: {d - 4}px; min-height: {d - 4}px; max-height: {d - 4}px; }}"
+                            f"QPushButton:checked {{ border: 3px solid #9CA3AF; }}")
+            b.clicked.connect(lambda _=False, c=col: self.set_color(c))
+            self.color_group.addButton(b)
+            b.setChecked(col == PEN_COLORS[0])
+            tb.addWidget(b)
+        tb.addWidget(self._vsep())
+        self.size_group = QButtonGroup(self)
+        for i, ic in enumerate(["dot1", "dot2", "dot3"]):
+            b = self._tool_btn(ic, ["Ingichka", "O'rta", "Qalin"][i])
+            b.clicked.connect(lambda _=False, k=i: self.set_size(k))
+            self.size_group.addButton(b)
+            b.setChecked(i == 1)
+            tb.addWidget(b)
+        tb.addWidget(self._vsep())
+        for ic, tip, fn in [("undo", "Orqaga (Ctrl+Z)", self._undo),
+                            ("redo", "Oldinga (Ctrl+Y)", self._redo),
+                            ("trash", "Chizilganlarni tozalash", self._clear)]:
+            b = card_btn(ic, tip, s)
+            b.clicked.connect(fn)
+            tb.addWidget(b)
+        tb.addStretch()
+        left.addWidget(tb_frame)
+
+        self.canvas = Canvas(image)
+        self.canvas.setObjectName("canvas")
+        self.canvas.setAttribute(Qt.WA_StyledBackground, True)
+        left.addWidget(self.canvas, 1)
+        self.tool_btns["pen"].setChecked(True)
+        self.info = QLabel()
+        self.info.setObjectName("muted")
+        left.addWidget(self.info)
+        self.canvas.changed.connect(self._update_info)
+        self._update_info()
+
+        side_scroll = QScrollArea()
+        side_scroll.setWidgetResizable(True)
+        side_scroll.setFrameShape(QFrame.NoFrame)
+        side_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        side_scroll.setFixedWidth(int(340 * s))
+        side = QWidget()
+        side.setObjectName("side")
+        side_scroll.setWidget(side)
+        sl = QVBoxLayout(side)
+        sl.setContentsMargins(0, 0, int(6 * s), 0)
+        sl.setSpacing(int(8 * s))
+        row.addWidget(side_scroll)
+
+        sl.addWidget(section("Tayyor shablonlar"))
+        grid = QGridLayout()
+        grid.setSpacing(int(6 * s))
+        self.chips = []
+        for i, (title, desc, _) in enumerate(TEMPLATES):
+            c = QPushButton(title)
+            c.setObjectName("chip")
+            c.setCheckable(True)
+            c.setToolTip(desc)
+            c.setCursor(Qt.PointingHandCursor)
+            c.clicked.connect(lambda _=False, k=i: self._chip(k))
+            grid.addWidget(c, i // 2, i % 2)
+            self.chips.append(c)
+        sl.addLayout(grid)
+        self.tpl_desc = QLabel("Shablon tanlanmasa — \"Real foto\" ishlatiladi.")
+        self.tpl_desc.setObjectName("muted")
+        self.tpl_desc.setWordWrap(True)
+        sl.addWidget(self.tpl_desc)
+
+        sl.addSpacing(int(4 * s))
+        sl.addWidget(section("Nima qilish kerak?"))
+        self.prompt = QPlainTextEdit()
+        self.prompt.setPlaceholderText("Masalan: shu xonani haqiqiy fotosurat qil, devorlarni oq, "
+                                       "polni yog'och qil. O'zbekcha yozsangiz bo'ladi.")
+        self.prompt.setMinimumHeight(int(110 * s))
+        sl.addWidget(self.prompt)
+
+        sl.addSpacing(int(4 * s))
+        sl.addWidget(section("Natija"))
+        orow = QGridLayout()
+        orow.setHorizontalSpacing(int(8 * s))
+        orow.addWidget(QLabel("O'lcham:"), 0, 0)
+        self.size_box = QComboBox()
+        self.size_box.addItems(list(SIZES))
+        self.size_box.setCurrentText(ctrl.cfg.get("out_size", "Avto"))
+        orow.addWidget(self.size_box, 0, 1)
+        orow.addWidget(QLabel("Sifat:"), 1, 0)
+        self.quality_box = QComboBox()
+        self.quality_box.addItems(list(QUALITIES))
+        self.quality_box.setCurrentText(ctrl.cfg.get("quality", "Avto"))
+        orow.addWidget(self.quality_box, 1, 1)
+        sl.addLayout(orow)
+        sl.addStretch()
+
+        self.progress = QProgressBar()
+        self.progress.setRange(0, 0)
+        self.progress.setTextVisible(False)
+        self.progress.setFixedHeight(int(6 * s))
+        self.progress.hide()
+        sl.addWidget(self.progress)
+        self.status = QLabel("")
+        self.status.setObjectName("muted")
+        self.status.setWordWrap(True)
+        sl.addWidget(self.status)
+        self.go = QPushButton("  Real rasm qilish")
+        self.go.setObjectName("primary")
+        self.go.setIcon(svg_icon("sparkle", accent_text(self.accent), int(18 * s)))
+        self.go.setIconSize(QSize(int(18 * s), int(18 * s)))
+        self.go.setCursor(Qt.PointingHandCursor)
+        self.go.setMinimumHeight(int(44 * s))
+        self.go.clicked.connect(self.generate)
+        sl.addWidget(self.go)
+        hint = QLabel("Ctrl+Enter")
+        hint.setObjectName("muted")
+        hint.setAlignment(Qt.AlignCenter)
+        sl.addWidget(hint)
+
+        QShortcut(QKeySequence("Ctrl+Z"), self, activated=self._undo)
+        QShortcut(QKeySequence("Ctrl+Y"), self, activated=self._redo)
+        QShortcut(QKeySequence("Ctrl+Shift+Z"), self, activated=self._redo)
+        QShortcut(QKeySequence("Ctrl+Return"), self, activated=self.generate)
+        QShortcut(QKeySequence("Ctrl+Enter"), self, activated=self.generate)
+
+        iw, ih = image.width(), image.height()
+        self.fit_on_screen(int(min(max(iw, 640), 1100) + 340 * s + 90),
+                           int(min(max(ih, 460), 760) + 150))
+
+    def _tool_btn(self, icon, tip):
+        s = self.s
+        b = QToolButton()
+        b.setObjectName("tool")
+        b.setCheckable(True)
+        isz = int(20 * s)
+        b.setIcon(svg_icon(icon, C_ICON, isz, bg=C_HOVER))
+        b.setIconSize(QSize(isz, isz))
+        b.setFixedSize(int(36 * s), int(36 * s))
+        b.setCursor(Qt.PointingHandCursor)
+        b.setToolTip(tip)
+        return b
+
+    def _vsep(self):
+        f = QFrame()
+        f.setObjectName("vsep")
+        f.setFixedWidth(1)
+        f.setFixedHeight(int(24 * self.s))
+        return f
+
+    def set_tool(self, k):
+        self.canvas._commit_text()
+        self.canvas.tool = k
+        self.canvas.setCursor(Qt.IBeamCursor if k == "text" else Qt.CrossCursor)
+
+    def set_color(self, c):
+        self.canvas.color = QColor(c)
+
+    def set_size(self, k):
+        self.canvas.size_idx = k
+
+    def _undo(self):
+        self.canvas.undo()
+
+    def _redo(self):
+        self.canvas.redo()
+
+    def _clear(self):
+        self.canvas.clear_marks()
+
+    def _open_other(self):
+        fn, _ = QFileDialog.getOpenFileName(self, "Rasmni tanlang", "",
+                                            "Rasmlar (*.png *.jpg *.jpeg *.webp *.bmp)")
+        if fn:
+            img = QImage(fn)
+            if not img.isNull():
+                self.canvas.set_image(img)
+
+    def _update_info(self):
+        n = len(self.canvas.items)
+        self.info.setText(f"{self.canvas.img.width()} × {self.canvas.img.height()} px"
+                          + (f"  ·  {n} ta belgi — ular ko'rsatma sifatida yuboriladi" if n else
+                             "  ·  Ustiga chizib yoki yozib, nima qilishni ko'rsatishingiz mumkin"))
+
+    def _chip(self, k):
+        self.template_idx = None if self.template_idx == k else k
+        for i, c in enumerate(self.chips):
+            c.setChecked(i == self.template_idx)
+        self.tpl_desc.setText(TEMPLATES[k][1] if self.template_idx is not None else
+                              "Shablon tanlanmasa — \"Real foto\" ishlatiladi.")
+
+    def generate(self):
+        if self.worker is not None and self.worker.isRunning():
+            return
+        cfg = self.ctrl.cfg
+        if not cfg.get("api_key"):
+            self.status.setText("API kalit kiritilmagan — Sozlamalarni oching.")
+            self.ctrl.open_settings()
+            if not cfg.get("api_key"):
+                return
+        cfg["out_size"] = self.size_box.currentText()
+        cfg["quality"] = self.quality_box.currentText()
+        save_config(cfg)
+        flat = self.canvas.render_flat()
+        send = flat
+        if max(send.width(), send.height()) > 2048:
+            send = send.scaled(2048, 2048, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        tpl = TEMPLATES[self.template_idx][2] if self.template_idx is not None else ""
+        self._flat = flat
+        self._tpl_title = TEMPLATES[self.template_idx][0] if self.template_idx is not None else ""
+        w = self.worker = ImageWorker(cfg, image_to_png(send), tpl,
+                                      self.prompt.toPlainText(), self.canvas.has_marks())
+        w.progress.connect(self.status.setText)
+        w.done.connect(self._done)
+        w.failed.connect(self._failed)
+        self.go.setEnabled(False)
+        self.go.setText("  Yaratilmoqda…")
+        self.progress.show()
+        self.status.setText("Yuborilmoqda…")
+        w.start()
+
+    def _reset(self):
+        self.go.setEnabled(True)
+        self.go.setText("  Real rasm qilish")
+        self.progress.hide()
+
+    def _failed(self, msg):
+        self._reset()
+        self.status.setText(msg)
+
+    def _done(self, png, model, prompt):
+        self._reset()
+        result = QImage.fromData(png)
+        if result.isNull():
+            self.status.setText("Javob rasm emas — qayta urinib ko'ring.")
+            return
+        st = stamp()
+        out = images_dir(self.ctrl.cfg)
+        res_path = os.path.join(out, f"AI_{st}.png")
+        try:
+            with open(res_path, "wb") as f:
+                f.write(png)
+            self._flat.save(os.path.join(out, f"AI_{st}_asl.png"))
+            with open(os.path.join(out, "tarix.md"), "a", encoding="utf-8") as f:
+                f.write(f"## {st}\n\n- Shablon: {self._tpl_title or '—'}\n"
+                        f"- Ko'rsatma: {self.prompt.toPlainText().strip() or '—'}\n"
+                        f"- Model: {model}\n- Natija: {os.path.basename(res_path)}\n\n")
+            self.status.setText(f"Tayyor ✓  Saqlandi: {res_path}")
+        except Exception as e:  # noqa: BLE001
+            self.status.setText(f"Tayyor ✓  (saqlab bo'lmadi: {e})")
+        self.ctrl.show_result(result, self._flat, res_path)
+
+    def closeEvent(self, e):
+        if self.worker is not None and self.worker.isRunning():
+            for sig in (self.worker.done, self.worker.failed, self.worker.progress):
+                try:
+                    sig.disconnect()
+                except Exception:
+                    pass
+            self.ctrl.keep_worker(self.worker)
+        super().closeEvent(e)
+
+
+class ImageView(QWidget):
+    def __init__(self, img: QImage):
+        super().__init__()
+        self.img = img
+        self.setMinimumSize(300, 220)
+
+    def set_image(self, img):
+        self.img = img
+        self.update()
+
+    def paintEvent(self, e):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.SmoothPixmapTransform)
+        iw, ih = max(1, self.img.width()), max(1, self.img.height())
+        sc = min(self.width() / iw, self.height() / ih, 1.5)
+        w, h = iw * sc, ih * sc
+        p.drawImage(QRectF((self.width() - w) / 2, (self.height() - h) / 2, w, h), self.img)
+        p.end()
+
+
+class ResultWindow(CardWindow):
+    def __init__(self, ctrl, result: QImage, original: QImage, path: str):
+        super().__init__(ctrl, "AI rasm — natija", "sparkle")
+        s = self.s
+        self.result, self.original, self.path = result, original, path
+        self.view = ImageView(result)
+        self.view.setObjectName("canvas")
+        self.view.setAttribute(Qt.WA_StyledBackground, True)
+        self.body.addWidget(self.view, 1)
+        where = QLabel(f"Saqlandi: {path}")
+        where.setObjectName("muted")
+        where.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        self.body.addWidget(where)
+
+        row = QHBoxLayout()
+        row.setSpacing(int(8 * s))
+        self.cmp = QPushButton("  Aslini ko'rish")
+        self.cmp.setIcon(svg_icon("eye", C_ICON, int(18 * s)))
+        self.cmp.setCheckable(True)
+        self.cmp.setCursor(Qt.PointingHandCursor)
+        self.cmp.toggled.connect(self._toggle)
+        row.addWidget(self.cmp)
+        row.addStretch()
+        self.msg = QLabel("")
+        self.msg.setObjectName("muted")
+        row.addWidget(self.msg)
+        for icon, text, fn in [("copy", "Nusxalash", self._copy),
+                               ("save", "Boshqa joyga…", self._save_as),
+                               ("folder", "Papka", lambda: open_images_dir(self.ctrl.cfg)),
+                               ("pen", "Yana tahrirlash", self._edit)]:
+            b = QPushButton("  " + text)
+            b.setIcon(svg_icon(icon, C_ICON, int(18 * s)))
+            b.setCursor(Qt.PointingHandCursor)
+            b.clicked.connect(fn)
+            row.addWidget(b)
+        self.body.addLayout(row)
+        self.fit_on_screen(int(min(max(result.width(), 700), 1200) + 80),
+                           int(min(max(result.height(), 500), 860) + 170))
+
+    def _toggle(self, on):
+        self.view.set_image(self.original if on else self.result)
+        self.cmp.setText("  Natijani ko'rish" if on else "  Aslini ko'rish")
+
+    def _copy(self):
+        QGuiApplication.clipboard().setImage(self.result)
+        self.msg.setText("Nusxalandi ✓")
+
+    def _save_as(self):
+        fn, _ = QFileDialog.getSaveFileName(self, "Saqlash", self.path, "PNG (*.png);;JPEG (*.jpg)")
+        if fn:
+            self.msg.setText("Saqlandi ✓" if self.result.save(fn) else "Saqlab bo'lmadi")
+
+    def _edit(self):
+        self.ctrl.open_editor(self.result)
+
+
+# ---------------------------------------------------------------------------
+# Skrinshotdan keyin chiqadigan kichik oyna: "Sifatini oshiraymi?"
+# ---------------------------------------------------------------------------
+class ShotToast(QWidget):
+    def __init__(self, ctrl, img: QImage, path: str, screen_geo: QRect):
+        super().__init__(None, Qt.Tool | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
+        self.ctrl, self.img, self.path = ctrl, img, path
+        self.enhanced_path = ""
+        self.worker = None
+        self.s = s = SCALES.get(ctrl.cfg.get("size"), 1.0)
+        self.setAttribute(Qt.WA_TranslucentBackground)
+        self.setAttribute(Qt.WA_ShowWithoutActivating)
+        self.setAttribute(Qt.WA_DeleteOnClose)
+
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(16, 16, 16, 16)
+        card = QFrame()
+        card.setObjectName("card")
+        shadow(card, 40, 12, 50)
+        outer.addWidget(card)
+        lay = QHBoxLayout(card)
+        lay.setContentsMargins(int(14 * s), int(14 * s), int(14 * s), int(14 * s))
+        lay.setSpacing(int(14 * s))
+
+        self.thumb = QLabel()
+        tw, th = int(130 * s), int(90 * s)
+        self.thumb.setFixedSize(tw, th)
+        self.thumb.setAlignment(Qt.AlignCenter)
+        self.thumb.setObjectName("thumb")
+        self.thumb.setPixmap(QPixmap.fromImage(img).scaled(tw, th, Qt.KeepAspectRatio,
+                                                           Qt.SmoothTransformation))
+        lay.addWidget(self.thumb)
+
+        col = QVBoxLayout()
+        col.setSpacing(int(4 * s))
+        top = QHBoxLayout()
+        self.title = QLabel("Skrinshot olindi ✓")
+        self.title.setObjectName("title")
+        top.addWidget(self.title)
+        top.addStretch()
+        x = card_btn("close", "Yopish", s)
+        x.setFixedSize(int(26 * s), int(26 * s))
+        x.clicked.connect(self.close)
+        top.addWidget(x)
+        col.addLayout(top)
+        self.sub = QLabel("Nusxalandi" + (" va saqlandi" if path else "") +
+                          f"  ·  {img.width()} × {img.height()} px")
+        self.sub.setObjectName("muted")
+        col.addWidget(self.sub)
+        self.question = QLabel("Sifatini oshiraymi?")
+        self.question.setObjectName("question")
+        col.addWidget(self.question)
+        self.progress = QProgressBar()
+        self.progress.setRange(0, 0)
+        self.progress.setTextVisible(False)
+        self.progress.setFixedHeight(int(5 * s))
+        self.progress.hide()
+        col.addWidget(self.progress)
+        btns = QHBoxLayout()
+        btns.setSpacing(int(6 * s))
+        self.b1 = QPushButton("Ha, oshir")
+        self.b1.setObjectName("primary")
+        self.b2 = QPushButton("  AI rasm")
+        self.b2.setIcon(svg_icon("sparkle", C_ICON, int(16 * s)))
+        self.b3 = QPushButton("Yo'q")
+        for b in (self.b1, self.b2, self.b3):
+            b.setCursor(Qt.PointingHandCursor)
+            btns.addWidget(b)
+        self.b1.clicked.connect(self.enhance)
+        self.b2.clicked.connect(self.to_ai)
+        self.b3.clicked.connect(self.close)
+        col.addLayout(btns)
+        lay.addLayout(col)
+
+        self.timer = QTimer(self)
+        self.timer.setSingleShot(True)
+        self.timer.timeout.connect(self.close)
+        self.timer.start(15000)
+
+        self.adjustSize()
+        self.move(screen_geo.right() - self.width() - 8, screen_geo.bottom() - self.height() - 8)
+
+    def enterEvent(self, e):
+        self.timer.stop()
+
+    def leaveEvent(self, e):
+        if self.worker is None or not self.worker.isRunning():
+            self.timer.start(8000)
+
+    def enhance(self):
+        self.timer.stop()
+        for b in (self.b1, self.b2, self.b3):
+            b.setEnabled(False)
+        self.question.setText("Sifat oshirilmoqda…")
+        self.progress.show()
+        self.worker = EnhanceWorker(image_to_png(self.img))
+        self.worker.done.connect(self._enhanced)
+        self.worker.failed.connect(self._failed)
+        self.worker.start()
+
+    def _enhanced(self, png, w, h):
+        self.progress.hide()
+        img = QImage.fromData(png)
+        self.img = img
+        QGuiApplication.clipboard().setImage(img)
+        try:
+            self.enhanced_path = os.path.join(images_dir(self.ctrl.cfg), f"Skrinshot_{stamp()}_sifatli.png")
+            with open(self.enhanced_path, "wb") as f:
+                f.write(png)
+            saved = " va saqlandi"
+        except Exception:  # noqa: BLE001
+            self.enhanced_path = ""
+            saved = ""
+        self.thumb.setPixmap(QPixmap.fromImage(img).scaled(self.thumb.size(), Qt.KeepAspectRatio,
+                                                           Qt.SmoothTransformation))
+        self.title.setText("Sifati oshirildi ✓")
+        self.sub.setText(f"{w} × {h} px  ·  nusxalandi{saved}")
+        self.question.setText("Ctrl+V bilan joylashtiring.")
+        self._final_buttons()
+
+    def _failed(self, msg):
+        self.progress.hide()
+        self.question.setText(msg)
+        self._final_buttons()
+
+    def _final_buttons(self):
+        for b in (self.b1, self.b2, self.b3):
+            b.setEnabled(True)
+            try:
+                b.clicked.disconnect()
+            except Exception:
+                pass
+        self.b1.setText("Ko'rish")
+        self.b1.clicked.connect(self._view)
+        self.b1.setVisible(bool(self.enhanced_path or self.path))
+        self.b2.clicked.connect(self.to_ai)
+        self.b3.setText("Yopish")
+        self.b3.clicked.connect(self.close)
+        self.timer.start(10000)
+
+    def _view(self):
+        p = self.enhanced_path or self.path
+        if p:
+            QDesktopServices.openUrl(QUrl.fromLocalFile(p))
+
+    def to_ai(self):
+        self.ctrl.open_editor(self.img)
+        self.close()
+
+    def closeEvent(self, e):
+        if self.worker is not None and self.worker.isRunning():
+            self.worker.wait(5000)
+        self.ctrl.forget(self)
+        super().closeEvent(e)
+
+
 class EdgeLine(QWidget):
     """Yashiringanda ekran chetida qoladigan shaffof uzun chiziq."""
 
@@ -843,6 +2275,8 @@ class MainWindow(QWidget):
         self.collapsed = False
         self.anim = None
         self._out_since = None
+        self.busy = False                 # skrinshot olinayotganda yashirinmasin
+        self._born = time.monotonic()     # ochilganda bir marta ko'rinib, keyin fonga o'tadi
 
         self.setWindowTitle(APP_NAME)
         self.setWindowIcon(QIcon(app_icon()))
@@ -930,7 +2364,20 @@ class MainWindow(QWidget):
             rl.addWidget(b)
             self.mode_buttons[m["key"]] = b
 
-        # 4) sozlamalar
+        # 4) skrinshot va AI rasm
+        tools = [t for t in EXTRA_TOOLS if t["key"] in self.cfg.get("modes", [])]
+        if tools:
+            rl.addSpacing(int(2 * s))
+            rl.addWidget(self._sep())
+            rl.addSpacing(int(2 * s))
+        for t in tools:
+            b = RailButton(t["icon"], t["title"], s, t["shortcut"])
+            b.clicked.connect(lambda _=False, k=t["key"]:
+                              self.ctrl.start_capture("ai" if k == "aiimage" else "shot"))
+            self._hook_hover(b)
+            rl.addWidget(b)
+
+        # 5) sozlamalar
         rl.addSpacing(int(2 * s))
         rl.addWidget(self._sep())
         rl.addSpacing(int(2 * s))
@@ -1030,8 +2477,8 @@ class MainWindow(QWidget):
 
     # ---------------- joylashuv (qo'ygan joyida qotib turadi) ----------------
     def apply_flags(self, pinned):
-        # Qt.Tool yo'q — shuning uchun dastur taskbarda ham ko'rinadi
-        flags = Qt.Window | Qt.FramelessWindowHint
+        # Qt.Tool — taskbarda ko'rinmaydi (trey ikonkasi orqali boshqariladi)
+        flags = Qt.FramelessWindowHint | Qt.Tool
         if pinned:
             flags |= Qt.WindowStaysOnTopHint
         visible = self.isVisible()
@@ -1077,7 +2524,9 @@ class MainWindow(QWidget):
         """Kursor dasturdan chiqib ketsa — chetga yashirinadi."""
         busy = (self.worker is not None and self.worker.isRunning())
         if (not self.auto_hide or self.collapsed or self.drag_off is not None
-                or busy or (self.anim is not None
+                or busy or self.busy or not self.isVisible()
+                or time.monotonic() - self._born < 2.5
+                or (self.anim is not None
                             and self.anim.state() == QParallelAnimationGroup.Running)
                 or QApplication.activeModalWidget() is not None
                 or QApplication.activePopupWidget() is not None):
@@ -1339,6 +2788,7 @@ class MainWindow(QWidget):
             v = dlg.values()
             need_rebuild = any(v[k] != self.cfg.get(k)
                                for k in ("size", "modes", "color", "auto_hide"))
+            hook_changed = v["hook_keys"] != self.cfg.get("hook_keys")
             if v["autostart"] != self.cfg.get("autostart"):
                 try:
                     set_autostart(v["autostart"])
@@ -1348,6 +2798,8 @@ class MainWindow(QWidget):
             self.cfg.update(v)
             save_config(self.cfg)
             self.line.update()
+            if hook_changed:
+                self.ctrl.update_hook()
             if need_rebuild:
                 QTimer.singleShot(0, self.ctrl.rebuild)
             elif self.mode:
@@ -1448,7 +2900,18 @@ def make_style(s: float, accent: str = C_ACCENT) -> str:
         return f"{max(1, round(v * s))}px"
     return f"""
 * {{ font-family: "Segoe UI", "Inter", Arial; font-size: {px(14)}; color: {C_TEXT}; }}
-#rail {{ background: {C_BG}; border: 1px solid {C_BORDER}; border-radius: {px(22)}; }}
+#rail, #card {{ background: {C_BG}; border: 1px solid {C_BORDER}; border-radius: {px(22)}; }}
+#vsep {{ background: {C_BORDER}; margin: 0 {px(4)}; }}
+QToolButton#tool {{ border-radius: {px(10)}; }}
+QToolButton#tool:hover, QToolButton#tool:checked {{ background: {C_HOVER}; }}
+#toolbar {{ background: #F6F7FA; border: 1px solid {C_BORDER}; border-radius: {px(14)}; }}
+#canvas, #thumb {{ background: #F1F3F7; border-radius: {px(14)}; }}
+#side {{ background: #FFFFFF; }}
+#question {{ font-size: {px(15)}; font-weight: 700; }}
+QPushButton#chip {{ padding: {px(7)} {px(8)}; font-weight: 600; font-size: {px(13)}; }}
+QPushButton#chip:checked {{ background: {accent}; color: {on_accent}; border: 1px solid {accent}; }}
+QProgressBar {{ background: {C_HOVER}; border: none; border-radius: {px(3)}; }}
+QProgressBar::chunk {{ background: {accent}; border-radius: {px(3)}; }}
 #sep {{ background: {C_BORDER}; margin: 0 {px(8)}; }}
 RailButton, QToolButton {{ border: none; border-radius: {px(13)}; background: transparent; }}
 RailButton:hover, QToolButton#small:hover {{ background: {C_HOVER}; }}
@@ -1496,18 +2959,30 @@ QScrollBar::add-line, QScrollBar::sub-line {{ height: 0; }}
 
 
 class Controller:
-    """Oynani boshqaradi: o'lcham yoki funksiyalar o'zgarsa — qayta quradi."""
+    """Hamma narsani boshqaradi: menyu oynasi, skrinshot, AI rasm oynalari, tugmalar."""
 
     def __init__(self, app):
         self.app = app
         self.cfg = load_config()
+        save_config(self.cfg)
         self.win = None
+        self.windows = []          # tahrirlash / natija / skrinshot oynachalari
+        self.workers = []
+        self.capturing = False
+        self.overlay = None
+        self.capture_mode = "shot"
+
         self.tray = QSystemTrayIcon(QIcon(app_icon()))
-        self.tray.setToolTip(APP_NAME)
+        self.tray.setToolTip(f"{APP_NAME} — skrinshot: PrintScreen")
         menu = QMenu()
         menu.addAction("Ko'rsatish", lambda: self.win and self.win.bring_front())
+        menu.addAction("Skrinshot olish", lambda: self.start_capture("shot"))
+        menu.addAction("AI rasm (skrinshotdan)", lambda: self.start_capture("ai"))
+        menu.addAction("AI rasm (fayldan)", self.open_file)
+        menu.addSeparator()
+        menu.addAction("Rasmlar papkasi", lambda: open_images_dir(self.cfg))
         menu.addAction("Yozishmalar papkasi", open_history_dir)
-        menu.addAction("Sozlamalar", lambda: self.win and self.win.open_settings())
+        menu.addAction("Sozlamalar", self.open_settings)
         menu.addSeparator()
         menu.addAction("Chiqish", self.quit)
         self._menu = menu
@@ -1516,7 +2991,27 @@ class Controller:
             lambda r: self.win.bring_front() if r == QSystemTrayIcon.Trigger and self.win
             else None)
         self.tray.show()
+
+        # tugmalar: PrintScreen / Win+Shift+S (+ zaxira Ctrl+Alt+S)
+        self.hook = None
+        self.update_hook()
+        self.hotkey = GlobalHotkey(lambda: self.start_capture("shot"))
+        app.installNativeEventFilter(self.hotkey)
+
+        # kompyuter yonganda o'zi ishga tushsin (yo'l o'zgargan bo'lsa ham yangilanadi)
+        if self.cfg.get("autostart"):
+            try:
+                set_autostart(True)
+            except Exception:
+                pass
         self.rebuild()
+
+    def update_hook(self):
+        if self.hook is not None:
+            self.hook.unhook()
+            self.hook = None
+        if self.cfg.get("hook_keys", True):
+            self.hook = KeyboardHook(lambda: self.start_capture("shot"))
 
     def rebuild(self):
         old = self.win
@@ -1529,10 +3024,116 @@ class Controller:
         if old is not None:
             old.dispose()
 
+    # ---------------- skrinshot ----------------
+    def start_capture(self, mode="shot"):
+        if self.capturing:
+            return
+        self.capturing = True
+        self.capture_mode = mode
+        for w in list(self.windows):
+            if isinstance(w, ShotToast):
+                w.close()
+        if self.win is not None:
+            self.win.busy = True
+            self.win.bubble.hide()
+            self.win.hide()
+        QTimer.singleShot(250, self._grab)
+
+    def _grab(self):
+        try:
+            screen = QGuiApplication.screenAt(QCursor.pos()) or QGuiApplication.primaryScreen()
+            pm = screen.grabWindow(0)
+            self.overlay = CaptureOverlay(screen, pm)
+            self.overlay.captured.connect(self._captured)
+            self.overlay.cancelled.connect(self._capture_done)
+            self.overlay.show()
+            self.overlay.raise_()
+            self.overlay.activateWindow()
+            self.overlay.setFocus()
+        except Exception:
+            self._capture_done()
+
+    def _capture_done(self):
+        geo = None
+        if self.overlay is not None:
+            geo = self.overlay.geometry()
+        self.capturing = False
+        self.overlay = None
+        if self.win is not None:
+            self.win.busy = False
+            self.win.show()
+        return geo
+
+    def _captured(self, img):
+        screen_geo = self.overlay.geometry() if self.overlay is not None else None
+        self._capture_done()
+        if self.capture_mode == "ai":
+            self.open_editor(img)
+            return
+        # oddiy skrinshot: nusxalash + saqlash, keyin so'rash
+        QGuiApplication.clipboard().setImage(img)
+        path = ""
+        if self.cfg.get("shot_autosave", True):
+            try:
+                path = os.path.join(images_dir(self.cfg), f"Skrinshot_{stamp()}.png")
+                if not img.save(path):
+                    path = ""
+            except Exception:
+                path = ""
+        if self.cfg.get("shot_ask", True):
+            scr = QGuiApplication.screenAt(screen_geo.center()) if screen_geo else None
+            g = (scr or QGuiApplication.primaryScreen()).availableGeometry()
+            t = ShotToast(self, img, path, g)
+            self.windows.append(t)
+            t.show()
+            t.raise_()
+
+    def open_file(self):
+        fn, _ = QFileDialog.getOpenFileName(None, "Rasmni tanlang", "",
+                                            "Rasmlar (*.png *.jpg *.jpeg *.webp *.bmp)")
+        if fn:
+            img = QImage(fn)
+            if not img.isNull():
+                self.open_editor(img)
+
+    # ---------------- oynalar ----------------
+    def open_editor(self, img: QImage):
+        w = EditorWindow(self, img)
+        self.windows.append(w)
+        w.show()
+        w.raise_()
+        w.activateWindow()
+
+    def show_result(self, result, original, path):
+        w = ResultWindow(self, result, original, path)
+        self.windows.append(w)
+        w.show()
+        w.raise_()
+        w.activateWindow()
+
+    def forget(self, w):
+        if w in self.windows:
+            self.windows.remove(w)
+
+    def keep_worker(self, worker):
+        """Oyna yopilsa ham ishlayotgan so'rov tugaguncha saqlab turamiz."""
+        self.workers.append(worker)
+        worker.finished.connect(lambda: self.workers.remove(worker)
+                                if worker in self.workers else None)
+
+    def open_settings(self):
+        if self.win is not None:
+            if self.win.collapsed:
+                self.win.expand()
+            self.win.open_settings()
+
     def quit(self):
         if self.win is not None:
             self.cfg["rx"], self.cfg["ry"] = self.win.rail_pos.x(), self.win.rail_pos.y()
         save_config(self.cfg)
+        if self.hook is not None:
+            self.hook.unhook()
+        self.hotkey.unregister()
         self.tray.hide()
         QApplication.quit()
 
@@ -1545,7 +3146,7 @@ def main():
     app.setApplicationName(APP_NAME)
     app.setOrganizationName(APP_NAME)
     app.setQuitOnLastWindowClosed(False)
-    ctrl = Controller(app)  # noqa: F841
+    app._ctrl = Controller(app)
     sys.exit(app.exec())
 
 
