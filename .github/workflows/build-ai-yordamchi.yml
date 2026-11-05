@@ -7,6 +7,9 @@ on:
       - ".github/workflows/build-ai-yordamchi.yml"
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: windows-latest
@@ -28,3 +31,14 @@ jobs:
         with:
           name: AI-Yordamchi-exe
           path: ai-yordamchi/dist/AI-Yordamchi.exe
+      - name: Publish release (download without login)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ai-yordamchi-v${{ github.run_number }}
+          name: AI Yordamchi v${{ github.run_number }}
+          target_commitish: ${{ github.sha }}
+          make_latest: "true"
+          body: |
+            **AI-Yordamchi.exe** ni yuklab oling va ishga tushiring.
+            Birinchi marta ⚙ Sozlamalar tugmasidan OpenAI API kalitini kiriting.
+          files: ai-yordamchi/dist/AI-Yordamchi.exe

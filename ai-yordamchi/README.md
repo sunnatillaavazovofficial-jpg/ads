@@ -20,7 +20,7 @@ Ekran chetiga yopishib turadigan kichik yordamchi (Windows, `.exe`). ChatGPT (Op
 
 ## .exe ni olish
 
-**1-usul: GitHub Actions.** `ai-yordamchi/` papkasi o'zgarib push qilinganda **Actions → Build AI Yordamchi (Windows exe)** avtomatik ishlaydi. Tugagach, sahifa pastidagi **Artifacts** bo'limidan `AI-Yordamchi-exe` ni yuklab oling.
+**1-usul (eng oson):** to'g'ridan-to'g'ri yuklab oling — https://github.com/sunnatillaavazovofficial-jpg/ads/releases/latest/download/AI-Yordamchi.exe (GitHub akkaunti shart emas). Har bir yangi build avtomatik **Releases** bo'limiga joylanadi.
 
 **2-usul: o'z kompyuteringizda.** Windows'da Python 3.10+ o'rnating, so'ng shu papkada `build.bat` ni ikki marta bosib ishga tushiring (Python o'rnatishda "Add python.exe to PATH" belgisini qo'ying). Natija: `dist\AI-Yordamchi.exe`.
 
