@@ -39,6 +39,7 @@ from PySide6.QtGui import (QColor, QCursor, QDesktopServices, QFont,
                            QGuiApplication, QIcon, QImage, QKeySequence,
                            QLinearGradient, QPainter, QPainterPath, QPen,
                            QPixmap, QPolygonF, QShortcut)
+from PySide6.QtNetwork import QLocalServer, QLocalSocket
 from PySide6.QtSvg import QSvgRenderer
 from PySide6.QtWidgets import (QApplication, QButtonGroup, QCheckBox,
                                QColorDialog, QComboBox, QDialog, QFileDialog,
@@ -93,9 +94,9 @@ def set_autostart(on: bool) -> None:
     try:
         if on:
             if getattr(sys, "frozen", False):
-                cmd = f'"{sys.executable}"'
+                cmd = f'"{sys.executable}" --autostart'
             else:
-                cmd = f'"{sys.executable}" "{os.path.abspath(__file__)}"'
+                cmd = f'"{sys.executable}" "{os.path.abspath(__file__)}" --autostart'
             winreg.SetValueEx(key, APP_NAME, 0, winreg.REG_SZ, cmd)
         else:
             try:
@@ -2525,7 +2526,7 @@ class MainWindow(QWidget):
         busy = (self.worker is not None and self.worker.isRunning())
         if (not self.auto_hide or self.collapsed or self.drag_off is not None
                 or busy or self.busy or not self.isVisible()
-                or time.monotonic() - self._born < 2.5
+                or time.monotonic() - self._born < 4.0
                 or (self.anim is not None
                             and self.anim.state() == QParallelAnimationGroup.Running)
                 or QApplication.activeModalWidget() is not None
@@ -2854,6 +2855,7 @@ class MainWindow(QWidget):
         self.send_btn.setText("  Yuborish")
 
     def bring_front(self):
+        self._born = time.monotonic()      # bir necha soniya ko'rinib tursin
         self.show()
         self.raise_()
         self.activateWindow()
@@ -2991,6 +2993,11 @@ class Controller:
             lambda r: self.win.bring_front() if r == QSystemTrayIcon.Trigger and self.win
             else None)
         self.tray.show()
+        if "--autostart" not in sys.argv:
+            self.tray.showMessage(
+                APP_NAME, "Ishga tushdi. Menyu ekran chetida — kursorni chetdagi chiziqqa olib "
+                "boring. Skrinshot: PrintScreen yoki Win+Shift+S.",
+                QSystemTrayIcon.Information, 6000)
 
         # tugmalar: PrintScreen / Win+Shift+S (+ zaxira Ctrl+Alt+S)
         self.hook = None
@@ -3146,7 +3153,31 @@ def main():
     app.setApplicationName(APP_NAME)
     app.setOrganizationName(APP_NAME)
     app.setQuitOnLastWindowClosed(False)
-    app._ctrl = Controller(app)
+
+    # faqat bitta nusxa ishlasin: dastur qayta ochilsa — mavjudini ko'rsatamiz
+    name = "AIYordamchi-" + re.sub(r"\W", "", os.environ.get("USERNAME") or
+                                   os.environ.get("USER") or "user")
+    sock = QLocalSocket()
+    sock.connectToServer(name)
+    if sock.waitForConnected(400):
+        sock.write(b"show")
+        sock.flush()
+        sock.waitForBytesWritten(400)
+        sock.disconnectFromServer()
+        return
+    QLocalServer.removeServer(name)
+    server = QLocalServer()
+    server.listen(name)
+    app._server = server
+    app._ctrl = ctrl = Controller(app)
+
+    def on_new():
+        conn = server.nextPendingConnection()
+        if conn is not None:
+            conn.disconnected.connect(conn.deleteLater)
+        if ctrl.win is not None:
+            ctrl.win.bring_front()
+    server.newConnection.connect(on_new)
     sys.exit(app.exec())
 
 
