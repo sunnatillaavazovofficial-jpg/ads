@@ -31,11 +31,11 @@ import urllib.parse
 
 import requests
 from PySide6.QtCore import (QAbstractNativeEventFilter, QBuffer, QByteArray,
-                            QEasingCurve, QEvent, QIODevice,
+                            QEasingCurve, QEvent, QIODevice, QMimeData,
                             QParallelAnimationGroup, QPoint, QPointF,
                             QPropertyAnimation, QRect, QRectF, QSize,
                             QStandardPaths, Qt, QThread, QTimer, QUrl, Signal)
-from PySide6.QtGui import (QColor, QCursor, QDesktopServices, QFont,
+from PySide6.QtGui import (QColor, QCursor, QDesktopServices, QFont, QFontMetrics,
                            QGuiApplication, QIcon, QImage, QKeySequence,
                            QLinearGradient, QPainter, QPainterPath, QPen,
                            QPixmap, QPolygonF, QShortcut)
@@ -449,7 +449,7 @@ def load_config() -> dict:
            "pinned": True, "lang": "O'zbekcha (lotin)", "size": "O'rta",
            "modes": list(TOOL_KEYS), "auto_hide": True, "color": C_ACCENT,
            "line_opacity": 55, "autostart": True, "image_model": "auto", "save_dir": "",
-           "hook_keys": True, "shot_autosave": True, "shot_ask": True,
+           "hook_keys": True, "shot_autosave": True, "shot_ask": True, "inplace_keys": True,
            "out_size": "Avto", "quality": "Avto"}
     try:
         with open(config_path(), encoding="utf-8") as f:
@@ -581,7 +581,7 @@ class HoverBubble(QWidget):
         lay.addWidget(self.label)
         lay.addSpacing(int(14 * s))
         self.keys = []
-        for _ in range(2):
+        for _ in range(3):
             k = QLabel()
             k.setObjectName("keycap")
             k.setAlignment(Qt.AlignCenter)
@@ -806,6 +806,11 @@ class SettingsDialog(QDialog):
         self.hook_keys.setChecked(cfg.get("hook_keys", True))
         self.hook_keys.setEnabled(sys.platform == "win32")
         lay.addWidget(self.hook_keys)
+        self.inplace_keys = QCheckBox("  Joyida tahrirlash: matnni belgilab Ctrl+Alt+1…5")
+        self.inplace_keys.setChecked(cfg.get("inplace_keys", True))
+        self.inplace_keys.setEnabled(sys.platform == "win32")
+        self.inplace_keys.setCursor(Qt.PointingHandCursor)
+        lay.addWidget(self.inplace_keys)
         self.shot_autosave = QCheckBox("  Skrinshotni papkaga avtomatik saqlash")
         self.shot_autosave.setChecked(cfg.get("shot_autosave", True))
         lay.addWidget(self.shot_autosave)
@@ -945,6 +950,7 @@ class SettingsDialog(QDialog):
                 "line_opacity": self.opacity.value(),
                 "autostart": self.autostart.isChecked(),
                 "hook_keys": self.hook_keys.isChecked(),
+                "inplace_keys": self.inplace_keys.isChecked(),
                 "shot_autosave": self.shot_autosave.isChecked(),
                 "shot_ask": self.shot_ask.isChecked(),
                 "image_model": self.image_model.currentText().strip() or "auto",
@@ -1233,9 +1239,11 @@ class KeyboardHook:
     skrinshotlar oynasi (faqat oxirgi skrinshotdan keyin 2 daqiqa ichida)."""
     VK_SNAPSHOT, VK_S, VK_V = 0x2C, 0x53, 0x56
     WIN_KEYS, SHIFT_KEYS, CTRL_KEYS = (0x5B, 0x5C), (0x10, 0xA0, 0xA1), (0x11, 0xA2, 0xA3)
+    ALT_KEYS = (0x12, 0xA4, 0xA5)
 
-    def __init__(self, callback, picker_cb=None, picker_active=None):
+    def __init__(self, callback, picker_cb=None, picker_active=None, inplace_cb=None):
         self.callback = callback
+        self.inplace_cb = inplace_cb      # Ctrl+Alt+1..5 — belgilangan matnni joyida tahrirlash
         self.picker_cb = picker_cb
         self.picker_active = picker_active or (lambda: False)
         self.router = None            # oxirgi skrinshotlar oynasi ochiq bo'lsa — tugmalar unga
@@ -1308,6 +1316,13 @@ class KeyboardHook:
                         return 1
                     ctrl = any(k in self.down for k in self.CTRL_KEYS)
                     shift = any(k in self.down for k in self.SHIFT_KEYS)
+                    alt = any(k in self.down for k in self.ALT_KEYS)
+                    if (is_down and ctrl and alt and not shift and self.inplace_cb is not None
+                            and (0x31 <= vk <= 0x35 or 0x61 <= vk <= 0x65)):
+                        self.eaten.add(vk)
+                        n = (vk - 0x31) if vk <= 0x35 else (vk - 0x61)
+                        QTimer.singleShot(0, lambda: self.inplace_cb(n))
+                        return 1
                     if is_down and ctrl and self.picker_cb and self.picker_active() and (
                             (vk == self.VK_V and shift) or
                             (vk == self.VK_S and self.VK_V in self.down)):
@@ -2325,7 +2340,102 @@ class ShotToast(QWidget):
 
 
 # ---------------------------------------------------------------------------
-# Oxirgi 10 ta skrinshot oynasi (Ctrl+V+S / Ctrl+Shift+V)
+# Yozuv kursori (caret) joyi va tugmalarni yuborish (Windows)
+# ---------------------------------------------------------------------------
+def native_to_logical(x, y):
+    """Windows piksellarini Qt koordinatalariga o'giradi (DPI hisobga olinadi)."""
+    for scr in QGuiApplication.screens():
+        g = scr.geometry()
+        dpr = scr.devicePixelRatio()
+        native = QRect(g.topLeft(), QSize(int(g.width() * dpr), int(g.height() * dpr)))
+        if native.contains(QPoint(int(x), int(y))):
+            return QPoint(int(g.left() + (x - g.left()) / dpr), int(g.top() + (y - g.top()) / dpr))
+    return QPoint(int(x), int(y))
+
+
+def caret_pos() -> QPoint:
+    """Faol dasturdagi yozuv kursori joyi; topilmasa — sichqoncha joyi."""
+    if sys.platform == "win32":
+        try:
+            import ctypes
+            from ctypes import wintypes
+
+            class GUITHREADINFO(ctypes.Structure):
+                _fields_ = [("cbSize", wintypes.DWORD), ("flags", wintypes.DWORD),
+                            ("hwndActive", wintypes.HWND), ("hwndFocus", wintypes.HWND),
+                            ("hwndCapture", wintypes.HWND), ("hwndMenuOwner", wintypes.HWND),
+                            ("hwndMoveSize", wintypes.HWND), ("hwndCaret", wintypes.HWND),
+                            ("rcCaret", wintypes.RECT)]
+            u = ctypes.windll.user32
+            gi = GUITHREADINFO()
+            gi.cbSize = ctypes.sizeof(gi)
+            tid = u.GetWindowThreadProcessId(u.GetForegroundWindow(), None)
+            if u.GetGUIThreadInfo(tid, ctypes.byref(gi)) and gi.hwndCaret:
+                pt = wintypes.POINT(gi.rcCaret.left, gi.rcCaret.bottom)
+                u.ClientToScreen(gi.hwndCaret, ctypes.byref(pt))
+                if pt.x or pt.y:
+                    return native_to_logical(pt.x, pt.y)
+        except Exception:
+            pass
+    return QCursor.pos()
+
+
+def _keys(seq):
+    """seq: [(vk, up), ...] — Windows'ga tugma bosishlarini yuboradi."""
+    if sys.platform != "win32":
+        return
+    try:
+        import ctypes
+        u = ctypes.windll.user32
+        for vk, up in seq:
+            u.keybd_event(vk, 0, 2 if up else 0, 0)
+    except Exception:
+        pass
+
+
+def release_modifiers():
+    """Foydalanuvchi hali bosib turgan Alt/Shift/Win tugmalarini "qo'yib yuboramiz"."""
+    if sys.platform != "win32":
+        return
+    try:
+        import ctypes
+        u = ctypes.windll.user32
+        held = [vk for vk in (0x12, 0xA4, 0xA5, 0x10, 0xA0, 0xA1, 0x5B, 0x5C)
+                if u.GetAsyncKeyState(vk) & 0x8000]
+        if held:
+            _keys([(0xE8, False), (0xE8, True)] + [(vk, True) for vk in held])
+    except Exception:
+        pass
+
+
+def send_ctrl_c():
+    release_modifiers()
+    _keys([(0x11, False), (0x43, False), (0x43, True), (0x11, True)])
+
+
+def clone_mime(md):
+    copy = QMimeData()
+    if md is not None:
+        for fmt in md.formats():
+            copy.setData(fmt, md.data(fmt))
+    return copy
+
+
+def place_near(widget, pos: QPoint, gap=14):
+    """Oynani berilgan nuqta (yozuv kursori) ostiga, sig'masa — ustiga qo'yadi."""
+    widget.adjustSize()
+    scr = QGuiApplication.screenAt(pos) or QGuiApplication.primaryScreen()
+    g = scr.availableGeometry()
+    w, h = widget.width(), widget.height()
+    x = max(g.left(), min(pos.x() - 24, g.right() - w))
+    y = pos.y() + gap
+    if y + h > g.bottom():
+        y = max(g.top(), pos.y() - h - gap - 18)
+    widget.move(x, y)
+
+
+# ---------------------------------------------------------------------------
+# Oxirgi 10 ta skrinshot — joylanadigan joyda, shaffof, faqat rasmlar
 # ---------------------------------------------------------------------------
 class ShotTile(QWidget):
     def __init__(self, picker, idx, entry, w, h):
@@ -2333,72 +2443,86 @@ class ShotTile(QWidget):
         self.picker, self.idx, self.entry = picker, idx, entry
         self.setFixedSize(w, h)
         self.setCursor(Qt.PointingHandCursor)
-        self.setMouseTracking(True)
 
     def paintEvent(self, e):
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing)
         p.setRenderHint(QPainter.SmoothPixmapTransform)
-        r = QRectF(self.rect()).adjusted(3, 3, -3, -3)
+        r = QRectF(self.rect()).adjusted(6, 4, -6, -8)
         cur = self.picker.idx == self.idx
         marked = self.idx in self.picker.marked
+        accent = QColor(self.picker.accent)
+        # yumshoq soya
+        for i, a in enumerate((26, 18, 10)):
+            p.setPen(Qt.NoPen)
+            p.setBrush(QColor(0, 0, 0, a))
+            p.drawRoundedRect(r.adjusted(-i, 2 - i, i, 3 + i), 12 + i, 12 + i)
         path = QPainterPath()
         path.addRoundedRect(r, 12, 12)
-        p.fillPath(path, QColor("#F1F3F7"))
+        p.fillPath(path, QColor("#FFFFFF"))
         pm = self.entry["thumb"]
-        tw, th = pm.width() / pm.devicePixelRatio(), pm.height() / pm.devicePixelRatio()
-        sc = min((r.width() - 10) / tw, (r.height() - 10) / th, 1.0)
-        dw, dh = tw * sc, th * sc
         p.save()
         p.setClipPath(path)
-        p.drawPixmap(QRectF(r.center().x() - dw / 2, r.center().y() - dh / 2, dw, dh), pm,
-                     QRectF(0, 0, pm.width(), pm.height()))
+        # rasmni kartochkaga to'ldirib chizamiz (cover)
+        sw, sh = pm.width(), pm.height()
+        sc = max(r.width() / sw, r.height() / sh)
+        cw, ch = r.width() / sc, r.height() / sc
+        p.drawPixmap(r, pm, QRectF((sw - cw) / 2, (sh - ch) / 2, cw, ch))
         p.restore()
-        accent = QColor(self.picker.accent)
-        if cur or marked:
+        p.setBrush(Qt.NoBrush)
+        if cur:
+            # har qanday fonda ko'rinadi: tashqarida oq qalin, ichida asosiy rang
+            p.setPen(QPen(QColor("#FFFFFF"), 4.5))
+            p.drawRoundedRect(r.adjusted(-1, -1, 1, 1), 13, 13)
+            p.setPen(QPen(accent, 2.5))
+            p.drawRoundedRect(r.adjusted(2.5, 2.5, -2.5, -2.5), 10, 10)
+        elif marked:
             p.setPen(QPen(accent, 3))
-            p.setBrush(Qt.NoBrush)
+            p.drawRoundedRect(r.adjusted(1, 1, -1, -1), 11, 11)
+        else:
+            p.setPen(QPen(QColor(255, 255, 255, 200), 1.5))
             p.drawRoundedRect(r, 12, 12)
-        # raqam
-        badge = QRectF(r.left() + 6, r.top() + 6, 22, 22)
+        if not cur:
+            p.fillPath(path, QColor(0, 0, 0, 35))          # tanlanmaganlar biroz xiraroq
+        # raqam (1–0)
+        b = QRectF(r.left() + 5, r.top() + 5, 18, 18)
         p.setPen(Qt.NoPen)
-        p.setBrush(QColor(17, 24, 39, 200))
-        p.drawRoundedRect(badge, 11, 11)
+        p.setBrush(QColor(17, 24, 39, 190))
+        p.drawEllipse(b)
         f = QFont("Segoe UI")
-        f.setPixelSize(12)
+        f.setPixelSize(11)
         f.setBold(True)
         p.setFont(f)
         p.setPen(QColor("#FFFFFF"))
-        p.drawText(badge, Qt.AlignCenter, str((self.idx + 1) % 10))
+        p.drawText(b, Qt.AlignCenter, str((self.idx + 1) % 10))
         if marked:
-            ck = QRectF(r.right() - 28, r.top() + 6, 22, 22)
+            ck = QRectF(r.right() - 23, r.top() + 5, 18, 18)
             p.setPen(Qt.NoPen)
             p.setBrush(accent)
             p.drawEllipse(ck)
-            p.setPen(QPen(QColor(accent_text(self.picker.accent)), 2.4, Qt.SolidLine, Qt.RoundCap,
-                          Qt.RoundJoin))
-            p.drawPolyline(QPolygonF([QPointF(ck.left() + 6, ck.center().y()),
-                                      QPointF(ck.left() + 10, ck.bottom() - 7),
-                                      QPointF(ck.right() - 5, ck.top() + 7)]))
+            p.setPen(QPen(QColor(accent_text(self.picker.accent)), 2.2, Qt.SolidLine,
+                          Qt.RoundCap, Qt.RoundJoin))
+            p.drawPolyline(QPolygonF([QPointF(ck.left() + 4.5, ck.center().y()),
+                                      QPointF(ck.left() + 8, ck.bottom() - 5),
+                                      QPointF(ck.right() - 4, ck.top() + 5.5)]))
         p.end()
 
     def enterEvent(self, e):
         self.picker.set_idx(self.idx)
 
     def mousePressEvent(self, e):
-        if e.button() == Qt.LeftButton:
-            if e.modifiers() & Qt.ControlModifier:
-                self.picker.toggle(self.idx)
-            else:
-                self.picker.paste([self.idx])
-        elif e.button() == Qt.RightButton:
+        if e.button() == Qt.LeftButton and not (e.modifiers() & Qt.ControlModifier):
+            self.picker.paste([self.idx])
+        else:
             self.picker.toggle(self.idx)
 
 
 class RecentPicker(QWidget):
+    """Shaffof fon, faqat rasmlar: bosish — joylash; ← → ↑ ↓ — tanlash; bo'sh joy —
+    belgilash; Enter — belgilanganlar (yo'q bo'lsa hammasi); 1–0 — raqam; Esc — yopish."""
     COLS = 5
 
-    def __init__(self, ctrl, shots, no_focus):
+    def __init__(self, ctrl, shots, no_focus, pos):
         flags = Qt.Tool | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint
         if no_focus:
             flags |= Qt.WindowDoesNotAcceptFocus
@@ -2407,90 +2531,28 @@ class RecentPicker(QWidget):
         self.idx = 0
         self.marked = set()
         self.done = False
-        self.s = s = SCALES.get(ctrl.cfg.get("size"), 1.0)
+        s = SCALES.get(ctrl.cfg.get("size"), 1.0)
         self.accent = ctrl.cfg.get("color", C_ACCENT)
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setAttribute(Qt.WA_DeleteOnClose)
         if no_focus:
             self.setAttribute(Qt.WA_ShowWithoutActivating)
 
-        outer = QVBoxLayout(self)
-        outer.setContentsMargins(18, 18, 18, 18)
-        card = QFrame()
-        card.setObjectName("card")
-        shadow(card, 44, 14, 55)
-        outer.addWidget(card)
-        lay = QVBoxLayout(card)
-        lay.setContentsMargins(int(18 * s), int(14 * s), int(14 * s), int(14 * s))
-        lay.setSpacing(int(10 * s))
-
-        top = QHBoxLayout()
-        ic = QLabel()
-        ic.setPixmap(svg_pixmap("camera", self.accent, int(22 * s)))
-        top.addWidget(ic)
-        t = QLabel("Oxirgi skrinshotlar")
-        t.setObjectName("title")
-        top.addWidget(t)
-        top.addStretch()
-        self.left_lbl = QLabel()
-        self.left_lbl.setObjectName("muted")
-        top.addWidget(self.left_lbl)
-        x = card_btn("close", "Yopish (Esc)", s)
-        x.clicked.connect(self.close)
-        top.addWidget(x)
-        lay.addLayout(top)
-
-        grid = QGridLayout()
-        grid.setSpacing(int(8 * s))
-        tw, th = int(176 * s), int(118 * s)
+        grid = QGridLayout(self)
+        grid.setContentsMargins(4, 4, 4, 4)
+        grid.setSpacing(0)
+        tw, th = int(132 * s), int(92 * s)
         self.tiles = []
         for i, e in enumerate(self.shots):
             tile = ShotTile(self, i, e, tw, th)
             grid.addWidget(tile, i // self.COLS, i % self.COLS)
             self.tiles.append(tile)
-        lay.addLayout(grid)
 
-        hint = QLabel("Bosing — shu rasm joylanadi  ·  ← → ↑ ↓ — tanlash  ·  Bo'sh joy / o'ng tugma — "
-                      "belgilash  ·  Enter — belgilanganlar (yo'q bo'lsa hammasi)  ·  1–0 — raqam "
-                      "bo'yicha  ·  Esc — yopish")
-        hint.setObjectName("muted")
-        hint.setWordWrap(True)
-        lay.addWidget(hint)
-        row = QHBoxLayout()
-        row.addStretch()
-        self.one_btn = QPushButton("Tanlanganini joylash")
-        self.one_btn.clicked.connect(lambda: self.paste([self.idx]))
-        self.all_btn = QPushButton("Hammasini joylash  (Enter)")
-        self.all_btn.setObjectName("primary")
-        self.all_btn.clicked.connect(self.paste_enter)
-        for b in (self.one_btn, self.all_btn):
-            b.setCursor(Qt.PointingHandCursor)
-            row.addWidget(b)
-        lay.addLayout(row)
-
-        self.tick = QTimer(self)
-        self.tick.timeout.connect(self._update_left)
-        self.tick.start(1000)
         self.idle = QTimer(self)
         self.idle.setSingleShot(True)
         self.idle.timeout.connect(self.close)
-        self.idle.start(30000)
-        self._update_left()
-        self._update_buttons()
-
-        self.adjustSize()
-        scr = QGuiApplication.screenAt(QCursor.pos()) or QGuiApplication.primaryScreen()
-        g = scr.availableGeometry()
-        self.move(g.center().x() - self.width() // 2, g.center().y() - self.height() // 2)
-
-    def _update_left(self):
-        left = max(0, int(PICKER_SECONDS - (time.monotonic() - self.ctrl.last_shot_time)))
-        self.left_lbl.setText(f"faol: {left // 60}:{left % 60:02d}  ·  {len(self.shots)} ta")
-
-    def _update_buttons(self):
-        n = len(self.marked)
-        self.all_btn.setText(f"Belgilangan {n} tasini joylash  (Enter)" if n
-                             else "Hammasini joylash  (Enter)")
+        self.idle.start(15000)
+        place_near(self, pos)
 
     def set_idx(self, i):
         if 0 <= i < len(self.shots) and i != self.idx:
@@ -2499,21 +2561,18 @@ class RecentPicker(QWidget):
                 t.update()
 
     def move_by(self, d):
-        self.idle.start(30000)
+        self.idle.start(15000)
         self.set_idx(max(0, min(len(self.shots) - 1, self.idx + d)))
 
     def toggle(self, i=None):
-        self.idle.start(30000)
+        self.idle.start(15000)
         i = self.idx if i is None else i
         self.marked.symmetric_difference_update({i})
         self.tiles[i].update()
-        self._update_buttons()
 
     def paste_enter(self):
-        if self.marked:
-            idxs = sorted(self.marked, reverse=True)          # eskisidan yangisiga
-        else:
-            idxs = list(range(len(self.shots) - 1, -1, -1))
+        idxs = sorted(self.marked, reverse=True) if self.marked else \
+            list(range(len(self.shots) - 1, -1, -1))         # eskisidan yangisiga
         self.paste(idxs)
 
     def paste(self, idxs):
@@ -2555,6 +2614,99 @@ class RecentPicker(QWidget):
     def closeEvent(self, e):
         self.ctrl.picker_closed(self)
         super().closeEvent(e)
+
+
+# ---------------------------------------------------------------------------
+# Joyida tahrirlash belgisi (yozuv kursori yonida, kichik va shaffof)
+# ---------------------------------------------------------------------------
+class InplaceBubble(QWidget):
+    def __init__(self, ctrl, icon, pos):
+        super().__init__(None, Qt.Tool | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint |
+                         Qt.WindowDoesNotAcceptFocus)
+        self.ctrl = ctrl
+        self.s = s = SCALES.get(ctrl.cfg.get("size"), 1.0)
+        self.accent = ctrl.cfg.get("color", C_ACCENT)
+        self.icon = svg_pixmap(icon, self.accent, int(18 * s))
+        self.state = "work"
+        self.text = ""
+        self.link = ""
+        self.phase = 0
+        self.setAttribute(Qt.WA_TranslucentBackground)
+        self.setAttribute(Qt.WA_ShowWithoutActivating)
+        self.setAttribute(Qt.WA_DeleteOnClose)
+        self.font_ = QFont("Segoe UI")
+        self.font_.setPixelSize(int(13 * s))
+        self.font_.setBold(True)
+        self.anim = QTimer(self)
+        self.anim.timeout.connect(self._step)
+        self.anim.start(160)
+        self._resize()
+        self.pos0 = pos
+        place_near(self, pos, gap=10)
+
+    def _resize(self):
+        s = self.s
+        h = int(34 * s)
+        if self.text:
+            tw = QFontMetrics(self.font_).horizontalAdvance(self.text)
+            w = int(46 * s) + min(tw, int(520 * s)) + 8
+        else:
+            w = int(78 * s)
+        self.setFixedSize(w + 12, h + 12)
+
+    def _step(self):
+        self.phase = (self.phase + 1) % 3
+        self.update()
+
+    def paintEvent(self, e):
+        s = self.s
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        r = QRectF(self.rect()).adjusted(6, 4, -6, -8)
+        for i, a in enumerate((22, 14, 8)):
+            p.setPen(Qt.NoPen)
+            p.setBrush(QColor(0, 0, 0, a))
+            p.drawRoundedRect(r.adjusted(-i, 2 - i, i, 3 + i), r.height() / 2 + i, r.height() / 2 + i)
+        p.setBrush(QColor(255, 255, 255, 242))
+        p.setPen(QPen(QColor(C_BORDER), 1))
+        p.drawRoundedRect(r, r.height() / 2, r.height() / 2)
+        ix = r.left() + 10 * s
+        iy = r.center().y() - 9 * s
+        if self.state == "ok":
+            p.setPen(QPen(QColor("#16A34A"), 2.6 * s, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
+            p.drawPolyline(QPolygonF([QPointF(ix + 2 * s, iy + 9 * s), QPointF(ix + 7 * s, iy + 14 * s),
+                                      QPointF(ix + 16 * s, iy + 4 * s)]))
+        else:
+            p.drawPixmap(QRectF(ix, iy, 18 * s, 18 * s), self.icon, QRectF(self.icon.rect()))
+        tx = ix + 26 * s
+        if self.text:
+            p.setFont(self.font_)
+            p.setPen(QColor("#DC2626") if self.state == "error" else QColor(C_TEXT))
+            p.drawText(QRectF(tx, r.top(), r.right() - tx - 10, r.height()),
+                       Qt.AlignVCenter | Qt.AlignLeft, self.text)
+        elif self.state == "work":
+            for i in range(3):
+                c = QColor(self.accent)
+                c.setAlpha(255 if i == self.phase else 90)
+                p.setPen(Qt.NoPen)
+                p.setBrush(c)
+                p.drawEllipse(QPointF(tx + 4 * s + i * 11 * s, r.center().y()), 3.2 * s, 3.2 * s)
+        p.end()
+
+    def finish(self, state, text="", link="", ms=1200):
+        self.anim.stop()
+        self.state, self.text, self.link = state, text, link
+        if link:
+            self.setCursor(Qt.PointingHandCursor)
+        self._resize()
+        place_near(self, self.pos0, gap=10)
+        self.update()
+        QTimer.singleShot(ms, self.close)
+
+    def mousePressEvent(self, e):
+        if self.link:
+            QDesktopServices.openUrl(QUrl(self.link))
+        self.close()
 
 
 class EdgeLine(QWidget):
@@ -2690,7 +2842,9 @@ class MainWindow(QWidget):
             rl.addWidget(self._sep())
             rl.addSpacing(int(2 * s))
         for m in enabled:
-            b = RailButton(m["icon"], m["title"], s, f"Ctrl+{m['shortcut']}", checkable=True)
+            sc = f"Ctrl+Alt+{m['shortcut']}" if self.cfg.get("inplace_keys", True) \
+                else f"Ctrl+{m['shortcut']}"
+            b = RailButton(m["icon"], m["title"], s, sc, checkable=True)
             b.clicked.connect(lambda _=False, k=m["key"]: self.toggle_mode(k))
             self._hook_hover(b)
             rl.addWidget(b)
@@ -3120,7 +3274,9 @@ class MainWindow(QWidget):
             v = dlg.values()
             need_rebuild = any(v[k] != self.cfg.get(k)
                                for k in ("size", "modes", "color", "auto_hide"))
-            hook_changed = v["hook_keys"] != self.cfg.get("hook_keys")
+            hook_changed = (v["hook_keys"] != self.cfg.get("hook_keys") or
+                            v["inplace_keys"] != self.cfg.get("inplace_keys"))
+            need_rebuild = need_rebuild or v["inplace_keys"] != self.cfg.get("inplace_keys")
             if v["autostart"] != self.cfg.get("autostart"):
                 try:
                     set_autostart(v["autostart"])
@@ -3304,6 +3460,7 @@ class Controller:
         self.capturing = False
         self.overlay = None
         self.capture_mode = "shot"
+        self.inplace_busy = False
         self.shots = []              # oxirgi 10 ta skrinshot (eng yangisi birinchi)
         self.last_shot_time = -1e9
         self.picker = None
@@ -3355,7 +3512,8 @@ class Controller:
         if self.cfg.get("hook_keys", True):
             self.hook = KeyboardHook(lambda: self.start_capture("shot"),
                                      lambda: self.open_picker(from_hook=True),
-                                     self.picker_active)
+                                     self.picker_active,
+                                     self.inplace if self.cfg.get("inplace_keys", True) else None)
             windows_snip_key(self.cfg, True)      # Windows vositasi PrintScreen'ni olmasin
         else:
             windows_snip_key(self.cfg, False)     # avvalgi holatiga qaytaramiz
@@ -3464,7 +3622,8 @@ class Controller:
             self.picker.close()
             return
         no_focus = from_hook and self.hook is not None and self.hook.ok
-        self.picker = RecentPicker(self, self.shots, no_focus)
+        pos = caret_pos() if from_hook else QCursor.pos()
+        self.picker = RecentPicker(self, self.shots, no_focus, pos)
         if no_focus:
             self.hook.router = self.picker.handle_key
         self.picker.show()
@@ -3502,6 +3661,79 @@ class Controller:
             QTimer.singleShot(120, lambda: (send_ctrl_v(),
                                             QTimer.singleShot(450, lambda: step(i + 1))))
         QTimer.singleShot(180, step)
+
+    # ---------------- joyida tahrirlash (Ctrl+Alt+1..5) ----------------
+    def inplace(self, n):
+        enabled = [m for m in MODES]
+        if self.inplace_busy or self.capturing or not (0 <= n < len(enabled)):
+            return
+        m = enabled[n]
+        pos = caret_pos()
+        bub = InplaceBubble(self, m["icon"], pos)
+        bub.show()
+        if not self.cfg.get("api_key"):
+            bub.finish("error", "API kalit kiritilmagan — Sozlamalar", ms=3500)
+            return
+        self.inplace_busy = True
+        cb = QGuiApplication.clipboard()
+        saved = clone_mime(cb.mimeData())
+        cb.setText("")
+        send_ctrl_c()
+        started = time.monotonic()
+
+        def wait_copy():
+            txt = cb.text()
+            if txt.strip():
+                self._inplace_run(m, txt, saved, bub, pos)
+            elif time.monotonic() - started < 1.2:
+                QTimer.singleShot(60, wait_copy)
+            else:
+                cb.setMimeData(saved)
+                self.inplace_busy = False
+                bub.finish("error", "Avval matnni belgilang", ms=2500)
+        QTimer.singleShot(90, wait_copy)
+
+    def _inplace_run(self, m, text, saved, bub, pos):
+        lang = self.cfg.get("lang", "O'zbekcha (lotin)")
+        system = m["prompt"].format(lang=LANGS.get(lang, LANGS["O'zbekcha (lotin)"])) + PLAIN_RULE
+        w = Worker(self.cfg["api_key"], self.cfg.get("model", DEFAULT_MODEL), system, text)
+        self.workers.append(w)
+        cb = QGuiApplication.clipboard()
+
+        def done(answer):
+            answer = clean_output(answer, single_line=(m["key"] == "search"))
+            if m["key"] == "newalpha" or (m["key"] == "translate" and "yangi" in lang):
+                answer = to_new_alphabet(answer)
+            try:
+                save_history(m["title"] + " (joyida)", lang if m["key"] == "translate" else "",
+                             text, answer)
+            except Exception:
+                pass
+            if m["key"] == "search":
+                # matn almashtirilmaydi — natija ko'rsatiladi va nusxalanadi
+                cb.setText(answer)
+                bub.finish("ok", answer, "https://www.google.com/search?q=" +
+                           urllib.parse.quote(answer), ms=7000)
+                self.inplace_busy = False
+                return
+            cb.setText(answer)
+
+            def paste():
+                send_ctrl_v()
+                QTimer.singleShot(600, lambda: cb.setMimeData(saved))
+                self.inplace_busy = False
+                bub.finish("ok", ms=900)
+            QTimer.singleShot(80, paste)
+
+        def failed(msg):
+            cb.setMimeData(saved)
+            self.inplace_busy = False
+            bub.finish("error", msg[:90], ms=4000)
+
+        w.done.connect(done)
+        w.failed.connect(failed)
+        w.finished.connect(lambda: self.workers.remove(w) if w in self.workers else None)
+        w.start()
 
     def open_file(self):
         fn, _ = QFileDialog.getOpenFileName(None, "Rasmni tanlang", "",

@@ -16,6 +16,20 @@ Ekranda hamma dasturlar ustida turadigan yordamchi (Windows, `.exe`). ChatGPT (O
 
 Barcha javoblar **oddiy matn** bo'lib chiqadi: emoji va ortiqcha izohlarsiz.
 
+### Joyida tahrirlash (istalgan dasturda)
+
+Matnni belgilab, tugmani bosasiz va matn **o'sha joyning o'zida** almashadi, panel ochilmaydi:
+
+| Tugma | Natija |
+|---|---|
+| `Ctrl+Alt+1` | tarjima (Sozlamalarda tanlangan tilga) |
+| `Ctrl+Alt+2` | grammatik xatolar to'g'rilanadi |
+| `Ctrl+Alt+3` | yangi alifboda (Ö Ğ Ş Ç) yoziladi |
+| `Ctrl+Alt+4` | kirillda yoziladi |
+| `Ctrl+Alt+5` | inglizcha nomi yozuv kursori yonida ko'rinadi va nusxalanadi (bossangiz, Google'da izlaydi) |
+
+Ishlayotgan paytda yozuv kursori yonida kichik shaffof belgi turadi. Bufer (Ctrl+V) avvalgi holatiga qaytariladi.
+
 ## Skrinshot va AI rasm
 
 - **PrintScreen** yoki **Win+Shift+S** bosilganda shu dastur ishlaydi (Windows vositasi o'rniga). Zaxira tugma: `Ctrl+Alt+S`.
@@ -23,7 +37,7 @@ Barcha javoblar **oddiy matn** bo'lib chiqadi: emoji va ortiqcha izohlarsiz.
   - **"Sifatini oshiraymi?"** "Ha" desangiz, rasm 2 barobar kattalashtiriladi va tiniqlashtiriladi (bepul, kompyuterda bajariladi), so'ng nusxalanib saqlanadi;
   - **AI rasm** tugmasi skrinshotni AI tahrirlash oynasida ochadi.
 - **Ctrl+V** oxirgi skrinshotni joylaydi.
-- **Ctrl+V+S** yoki **Ctrl+Shift+V** **oxirgi 10 ta skrinshot** oynasini ochadi. Bu faqat oxirgi skrinshotdan keyin **2 daqiqa** ishlaydi, keyin o'chadi.
+- **Ctrl+V+S** yoki **Ctrl+Shift+V** **oxirgi 10 ta skrinshot**ni rasm joylanadigan joyning o'zida (yozuv kursori yonida) ko'rsatadi. Fon shaffof, ortiqcha yozuv va tugma yo'q. Bu faqat oxirgi skrinshotdan keyin **2 daqiqa** ishlaydi, keyin o'chadi.
   - rasmni bossangiz yoki uning raqamini (1–0) bossangiz, shu rasm joylanadi;
   - **← → ↑ ↓** bilan tanlaysiz, **bo'sh joy** yoki o'ng tugma bilan belgilaysiz;
   - **Enter** belgilanganlarni, hech narsa belgilanmagan bo'lsa **hammasini** ketma-ket joylaydi;
