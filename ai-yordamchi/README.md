@@ -33,9 +33,10 @@ Ishlayotgan paytda yozuv kursori yonida kichik shaffof belgi turadi. Bufer (Ctrl
 ## Skrinshot va AI rasm
 
 - **PrintScreen** yoki **Win+Shift+S** bosilganda shu dastur ishlaydi (Windows vositasi o'rniga). Zaxira tugma: `Ctrl+Alt+S`.
-- **Oddiy skrinshot:** joyni belgilaysiz (`Enter` butun ekranni oladi, `Esc` bekor qiladi). Rasm darhol **nusxalanadi** (`Ctrl+V` bilan joylashtirasiz) va **tanlangan papkaga saqlanadi**. Keyin pastda kichik oyna chiqadi:
-  - **"Sifatini oshiraymi?"** "Ha" desangiz, rasm 2 barobar kattalashtiriladi va tiniqlashtiriladi (bepul, kompyuterda bajariladi), so'ng nusxalanib saqlanadi;
-  - **AI rasm** tugmasi skrinshotni AI tahrirlash oynasida ochadi.
+- **Oddiy skrinshot:** joyni belgilaysiz. Tepada shaffof ikonkalar bor: ⛶ butun ekran (`Enter`), ✕ bekor qilish (`Esc`). Rasm darhol **nusxalanadi** (`Ctrl+V` bilan joylashtirasiz) va **tanlangan papkaga saqlanadi**. Keyin pastki burchakda yozuvsiz, shaffof oynacha chiqadi: rasm va ikonkalar.
+  - **HD** sifatni oshiradi: rasm 2 barobar kattalashtiriladi va tiniqlashtiriladi (bepul, kompyuterda bajariladi), so'ng nusxalanib saqlanadi. Tayyor bo'lgach, rasmda ✓ chiqadi;
+  - **✦** AI rasm tahrirlash oynasini ochadi; **👁** ochib ko'rsatadi; **✕** oynachani yopadi.
+  - Yozuvlar faqat kursor ikonka ustiga borganda ko'rinadi.
 - **Ctrl+V** oxirgi skrinshotni joylaydi.
 - **Ctrl+V+S** yoki **Ctrl+Shift+V** **oxirgi 10 ta skrinshot**ni rasm joylanadigan joyning o'zida (yozuv kursori yonida) ko'rsatadi. Fon shaffof, ortiqcha yozuv va tugma yo'q. Bu faqat oxirgi skrinshotdan keyin **2 daqiqa** ishlaydi, keyin o'chadi.
   - rasmni bossangiz yoki uning raqamini (1–0) bossangiz, shu rasm joylanadi;

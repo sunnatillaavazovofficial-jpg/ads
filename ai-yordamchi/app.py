@@ -238,6 +238,13 @@ ICONS = {
             '<path d="M4 17v2.5A1.5 1.5 0 0 0 5.5 21h13a1.5 1.5 0 0 0 1.5-1.5V17" stroke-width="3"/>',
     "eye": '<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" stroke-width="2.7"/>'
            '<circle cx="12" cy="12" r="3.3" fill="{c}" stroke="none"/>',
+    "expand": '<path d="M3 9V4.5A1.5 1.5 0 0 1 4.5 3H9M15 3h4.5A1.5 1.5 0 0 1 21 4.5V9M21 15v4.5a1.5 '
+              '1.5 0 0 1-1.5 1.5H15M9 21H4.5A1.5 1.5 0 0 1 3 19.5V15" stroke-width="3"/>'
+              '<rect x="8" y="8" width="8" height="8" rx="1.5" fill="{c}" stroke="none"/>',
+    "hd": '<rect x="1" y="4" width="22" height="16" rx="4.5" fill="{c}" stroke="none"/>'
+          '<text x="12" y="16.4" font-size="10.5" font-weight="900" text-anchor="middle" '
+          'font-family="Arial" fill="{bg}" stroke="none">HD</text>',
+    "check": '<path d="m4.5 12.5 5 5 10-11" stroke-width="3.4"/>',
     "dot1": '<circle cx="12" cy="12" r="2.4" fill="{c}" stroke="none"/>',
     "dot2": '<circle cx="12" cy="12" r="4.2" fill="{c}" stroke="none"/>',
     "dot3": '<circle cx="12" cy="12" r="6.4" fill="{c}" stroke="none"/>',
@@ -1410,6 +1417,21 @@ class CaptureOverlay(QWidget):
         self.setCursor(Qt.CrossCursor)
         self.setGeometry(screen.geometry())
         self.setFocusPolicy(Qt.StrongFocus)
+        # yozuvsiz, shaffof ikonkalar paneli: butun ekran / bekor qilish
+        bar = QFrame(self)
+        bar.setObjectName("glass")
+        bl = QHBoxLayout(bar)
+        bl.setContentsMargins(6, 6, 6, 6)
+        bl.setSpacing(4)
+        for icon, tip, fn in [("expand", "Butun ekran (Enter)", lambda: self._finish(self.rect())),
+                              ("close", "Bekor qilish (Esc)", self._cancel)]:
+            b = glass_btn(icon, tip, 1.0, 40, with_shadow=False)
+            b.clicked.connect(fn)
+            bl.addWidget(b)
+        shadow(bar, 30, 8, 60)
+        bar.adjustSize()
+        bar.move((self.width() - bar.width()) // 2, 22)
+        self.bar = bar
 
     def sel_rect(self):
         if self.start is None or self.end is None:
@@ -1426,22 +1448,14 @@ class CaptureOverlay(QWidget):
             src = QRect(int(r.x() * dpr), int(r.y() * dpr), int(r.width() * dpr),
                         int(r.height() * dpr))
             p.drawPixmap(r, self.pm, src)
+            p.setRenderHint(QPainter.Antialiasing)
             p.setPen(QPen(QColor("#FFFFFF"), 2))
+            p.setBrush(Qt.NoBrush)
             p.drawRect(r.adjusted(0, 0, -1, -1))
-            p.drawText(r.left(), max(16, r.top() - 8),
-                       f"{int(r.width() * dpr)} × {int(r.height() * dpr)}")
-        hint = "Joyni belgilang  ·  Enter — butun ekran  ·  Esc — bekor qilish"
-        f = QFont("Segoe UI")
-        f.setPixelSize(15)
-        f.setBold(True)
-        p.setFont(f)
-        w = p.fontMetrics().horizontalAdvance(hint) + 36
-        box = QRectF((self.width() - w) / 2, 24, w, 40)
-        p.setPen(Qt.NoPen)
-        p.setBrush(QColor(255, 255, 255, 235))
-        p.drawRoundedRect(box, 20, 20)
-        p.setPen(QColor(C_TEXT))
-        p.drawText(box, Qt.AlignCenter, hint)
+            p.setPen(Qt.NoPen)
+            p.setBrush(QColor("#FFFFFF"))
+            for c in (r.topLeft(), r.topRight(), r.bottomLeft(), r.bottomRight()):
+                p.drawEllipse(QPointF(c), 4.5, 4.5)
         p.end()
 
     def mousePressEvent(self, e):
@@ -2180,8 +2194,102 @@ class ResultWindow(CardWindow):
 
 
 # ---------------------------------------------------------------------------
-# Skrinshotdan keyin chiqadigan kichik oyna: "Sifatini oshiraymi?"
+# Skrinshotdan keyin: shaffof, yozuvsiz — rasm va ikonka tugmalar
+#   HD — sifatini oshirish, ✦ — AI rasm, ✕ — yopish (yozuv faqat kursor borganda)
 # ---------------------------------------------------------------------------
+class ThumbView(QWidget):
+    def __init__(self, img, w, h, accent):
+        super().__init__()
+        self.img = img
+        self.accent = accent
+        self.state = ""          # "", "work", "ok", "error"
+        self.phase = 0
+        self.setFixedSize(w, h)
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self._step)
+
+    def set_image(self, img):
+        self.img = img
+        self.update()
+
+    def set_state(self, st):
+        self.state = st
+        if st == "work":
+            self.timer.start(140)
+        else:
+            self.timer.stop()
+        self.update()
+
+    def _step(self):
+        self.phase = (self.phase + 1) % 12
+        self.update()
+
+    def paintEvent(self, e):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        p.setRenderHint(QPainter.SmoothPixmapTransform)
+        r = QRectF(self.rect()).adjusted(8, 6, -8, -10)
+        for i, a in enumerate((30, 20, 11)):
+            p.setPen(Qt.NoPen)
+            p.setBrush(QColor(0, 0, 0, a))
+            p.drawRoundedRect(r.adjusted(-i, 2 - i, i, 3 + i), 14 + i, 14 + i)
+        path = QPainterPath()
+        path.addRoundedRect(r, 14, 14)
+        p.fillPath(path, QColor("#FFFFFF"))
+        iw, ih = max(1, self.img.width()), max(1, self.img.height())
+        sc = max(r.width() / iw, r.height() / ih)
+        cw, ch = r.width() / sc, r.height() / sc
+        p.save()
+        p.setClipPath(path)
+        p.drawImage(r, self.img, QRectF((iw - cw) / 2, (ih - ch) / 2, cw, ch))
+        if self.state == "work":
+            p.fillPath(path, QColor(255, 255, 255, 120))
+        p.restore()
+        p.setPen(QPen(QColor(255, 255, 255, 235), 2.5))
+        p.setBrush(Qt.NoBrush)
+        p.drawRoundedRect(r, 14, 14)
+        c = r.center()
+        if self.state == "work":                   # aylanuvchi nuqtalar
+            for i in range(12):
+                ang = (i / 12) * 2 * math.pi
+                col = QColor(self.accent)
+                col.setAlpha(40 + int(215 * (((i - self.phase) % 12) / 11)))
+                p.setPen(Qt.NoPen)
+                p.setBrush(col)
+                p.drawEllipse(QPointF(c.x() + 15 * math.cos(ang), c.y() + 15 * math.sin(ang)), 3, 3)
+        elif self.state in ("ok", "error"):        # burchakda ✓ yoki !
+            b = QRectF(r.right() - 30, r.top() + 6, 24, 24)
+            p.setPen(Qt.NoPen)
+            p.setBrush(QColor("#16A34A") if self.state == "ok" else QColor("#DC2626"))
+            p.drawEllipse(b)
+            p.setPen(QPen(QColor("#FFFFFF"), 2.6, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
+            if self.state == "ok":
+                p.drawPolyline(QPolygonF([QPointF(b.left() + 6.5, b.center().y()),
+                                          QPointF(b.left() + 10.5, b.bottom() - 7),
+                                          QPointF(b.right() - 6, b.top() + 7.5)]))
+            else:
+                p.drawLine(QPointF(b.center().x(), b.top() + 6), QPointF(b.center().x(), b.bottom() - 10))
+                p.drawPoint(QPointF(b.center().x(), b.bottom() - 6))
+        p.end()
+
+
+def glass_btn(icon, tip, s, size=42, with_shadow=True):
+    """Yumaloq, shaffof ikonka tugma (yozuv faqat kursor borganda — tooltip)."""
+    b = QToolButton()
+    b.setObjectName("glassBtn")
+    d = int(size * s)
+    isz = int(20 * s)
+    b.setIcon(svg_icon(icon, C_ICON, isz))
+    b.setIconSize(QSize(isz, isz))
+    b.setFixedSize(d, d)
+    b.setStyleSheet(f"QToolButton#glassBtn {{ border-radius: {d // 2}px; }}")
+    b.setCursor(Qt.PointingHandCursor)
+    b.setToolTip(tip)
+    if with_shadow:
+        shadow(b, 18, 4, 50)
+    return b
+
+
 class ShotToast(QWidget):
     def __init__(self, ctrl, img: QImage, path: str, screen_geo: QRect):
         super().__init__(None, Qt.Tool | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
@@ -2194,64 +2302,29 @@ class ShotToast(QWidget):
         self.setAttribute(Qt.WA_ShowWithoutActivating)
         self.setAttribute(Qt.WA_DeleteOnClose)
 
-        outer = QVBoxLayout(self)
-        outer.setContentsMargins(16, 16, 16, 16)
-        card = QFrame()
-        card.setObjectName("card")
-        shadow(card, 40, 12, 50)
-        outer.addWidget(card)
-        lay = QHBoxLayout(card)
-        lay.setContentsMargins(int(14 * s), int(14 * s), int(14 * s), int(14 * s))
-        lay.setSpacing(int(14 * s))
-
-        self.thumb = QLabel()
-        tw, th = int(130 * s), int(90 * s)
-        self.thumb.setFixedSize(tw, th)
-        self.thumb.setAlignment(Qt.AlignCenter)
-        self.thumb.setObjectName("thumb")
-        self.thumb.setPixmap(QPixmap.fromImage(img).scaled(tw, th, Qt.KeepAspectRatio,
-                                                           Qt.SmoothTransformation))
+        lay = QHBoxLayout(self)
+        lay.setContentsMargins(8, 8, 8, 8)
+        lay.setSpacing(int(6 * s))
+        self.thumb = ThumbView(img, int(180 * s), int(122 * s), ctrl.cfg.get("color", C_ACCENT))
+        self.thumb.setCursor(Qt.PointingHandCursor)
+        self.thumb.setToolTip("Ochib ko'rish")
+        self.thumb.mousePressEvent = lambda e: self._view()
         lay.addWidget(self.thumb)
 
         col = QVBoxLayout()
-        col.setSpacing(int(4 * s))
-        top = QHBoxLayout()
-        self.title = QLabel("Skrinshot olindi ✓")
-        self.title.setObjectName("title")
-        top.addWidget(self.title)
-        top.addStretch()
-        x = card_btn("close", "Yopish", s)
-        x.setFixedSize(int(26 * s), int(26 * s))
-        x.clicked.connect(self.close)
-        top.addWidget(x)
-        col.addLayout(top)
-        self.sub = QLabel("Nusxalandi" + (" va saqlandi" if path else "") +
-                          f"  ·  {img.width()} × {img.height()} px")
-        self.sub.setObjectName("muted")
-        col.addWidget(self.sub)
-        self.question = QLabel("Sifatini oshiraymi?")
-        self.question.setObjectName("question")
-        col.addWidget(self.question)
-        self.progress = QProgressBar()
-        self.progress.setRange(0, 0)
-        self.progress.setTextVisible(False)
-        self.progress.setFixedHeight(int(5 * s))
-        self.progress.hide()
-        col.addWidget(self.progress)
-        btns = QHBoxLayout()
-        btns.setSpacing(int(6 * s))
-        self.b1 = QPushButton("Ha, oshir")
-        self.b1.setObjectName("primary")
-        self.b2 = QPushButton("  AI rasm")
-        self.b2.setIcon(svg_icon("sparkle", C_ICON, int(16 * s)))
-        self.b3 = QPushButton("Yo'q")
-        for b in (self.b1, self.b2, self.b3):
-            b.setCursor(Qt.PointingHandCursor)
-            btns.addWidget(b)
-        self.b1.clicked.connect(self.enhance)
-        self.b2.clicked.connect(self.to_ai)
-        self.b3.clicked.connect(self.close)
-        col.addLayout(btns)
+        col.setSpacing(int(6 * s))
+        self.b_hd = glass_btn("hd", "Sifatini oshirish", s)
+        self.b_ai = glass_btn("sparkle", "AI rasm", s)
+        self.b_view = glass_btn("eye", "Ko'rish", s)
+        self.b_close = glass_btn("close", "Yopish", s)
+        self.b_hd.clicked.connect(self.enhance)
+        self.b_ai.clicked.connect(self.to_ai)
+        self.b_view.clicked.connect(self._view)
+        self.b_close.clicked.connect(self.close)
+        self.b_view.hide()
+        for b in (self.b_hd, self.b_ai, self.b_view, self.b_close):
+            col.addWidget(b)
+        col.addStretch()
         lay.addLayout(col)
 
         self.timer = QTimer(self)
@@ -2260,7 +2333,7 @@ class ShotToast(QWidget):
         self.timer.start(15000)
 
         self.adjustSize()
-        self.move(screen_geo.right() - self.width() - 8, screen_geo.bottom() - self.height() - 8)
+        self.move(screen_geo.right() - self.width() - 4, screen_geo.bottom() - self.height() - 4)
 
     def enterEvent(self, e):
         self.timer.stop()
@@ -2271,56 +2344,41 @@ class ShotToast(QWidget):
 
     def enhance(self):
         self.timer.stop()
-        for b in (self.b1, self.b2, self.b3):
+        for b in (self.b_hd, self.b_ai):
             b.setEnabled(False)
-        self.question.setText("Sifat oshirilmoqda…")
-        self.progress.show()
+        self.thumb.set_state("work")
         self.worker = EnhanceWorker(image_to_png(self.img))
         self.worker.done.connect(self._enhanced)
         self.worker.failed.connect(self._failed)
         self.worker.start()
 
     def _enhanced(self, png, w, h):
-        self.progress.hide()
         img = QImage.fromData(png)
         self.img = img
         QGuiApplication.clipboard().setImage(img)
         try:
-            self.enhanced_path = unique_path(images_subdir(self.ctrl.cfg, "hq"),
-                                             f"Sifatli_{stamp()}")
+            self.enhanced_path = unique_path(images_subdir(self.ctrl.cfg, "hq"), f"Sifatli_{stamp()}")
             with open(self.enhanced_path, "wb") as f:
                 f.write(png)
-            saved = " va saqlandi"
         except Exception:  # noqa: BLE001
             self.enhanced_path = ""
-            saved = ""
-        self.thumb.setPixmap(QPixmap.fromImage(img).scaled(self.thumb.size(), Qt.KeepAspectRatio,
-                                                           Qt.SmoothTransformation))
         if self.entry is not None:
             self.ctrl.update_shot(self.entry, img, self.enhanced_path)
-        self.title.setText("Sifati oshirildi ✓")
-        self.sub.setText(f"{w} × {h} px  ·  nusxalandi{saved}")
-        self.question.setText("Ctrl+V bilan joylashtiring.")
-        self._final_buttons()
+        self.thumb.set_image(img)
+        self.thumb.set_state("ok")
+        self.thumb.setToolTip(f"{w} × {h} px — nusxalandi (Ctrl+V)")
+        self._final()
 
     def _failed(self, msg):
-        self.progress.hide()
-        self.question.setText(msg)
-        self._final_buttons()
+        self.thumb.set_state("error")
+        self.thumb.setToolTip(msg)
+        self._final()
 
-    def _final_buttons(self):
-        for b in (self.b1, self.b2, self.b3):
-            b.setEnabled(True)
-            try:
-                b.clicked.disconnect()
-            except Exception:
-                pass
-        self.b1.setText("Ko'rish")
-        self.b1.clicked.connect(self._view)
-        self.b1.setVisible(bool(self.enhanced_path or self.path))
-        self.b2.clicked.connect(self.to_ai)
-        self.b3.setText("Yopish")
-        self.b3.clicked.connect(self.close)
+    def _final(self):
+        self.b_hd.hide()
+        self.b_ai.setEnabled(True)
+        self.b_view.setVisible(bool(self.enhanced_path or self.path))
+        self.adjustSize()
         self.timer.start(10000)
 
     def _view(self):
@@ -3390,6 +3448,11 @@ def make_style(s: float, accent: str = C_ACCENT) -> str:
     return f"""
 * {{ font-family: "Segoe UI", "Inter", Arial; font-size: {px(14)}; color: {C_TEXT}; }}
 #rail, #card {{ background: {C_BG}; border: 1px solid {C_BORDER}; border-radius: {px(22)}; }}
+#glass {{ background: rgba(255,255,255,225); border: 1px solid rgba(255,255,255,160);
+    border-radius: 26px; }}
+QToolButton#glassBtn {{ background: rgba(255,255,255,235); border: 1px solid rgba(230,232,238,200); }}
+QToolButton#glassBtn:hover {{ background: #FFFFFF; border: 1px solid #D5D8E0; }}
+QToolButton#glassBtn:disabled {{ background: rgba(255,255,255,150); }}
 #vsep {{ background: {C_BORDER}; margin: 0 {px(4)}; }}
 QToolButton#tool {{ border-radius: {px(10)}; }}
 QToolButton#tool:hover, QToolButton#tool:checked {{ background: {C_HOVER}; }}
