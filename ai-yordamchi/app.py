@@ -8,8 +8,8 @@ Funksiyalar (Sozlamalarda yoqib/o'chirsa bo'ladi):
   4. Kirill                  (Ctrl+4)  – xatolarni to'g'rilab, o'zbek kirill yozuvida yozadi
   5. Inglizcha qidiruv       (Ctrl+5)  – narsa nomi/xususiyatini ingliz tilida nima deb izlashni aytadi
 
-Oyna qayerga qo'yilsa, o'sha joyda qotib turadi. O'lchamini Sozlamalardan
-kichik/katta qilish mumkin. Barcha yozishmalar "Hujjatlar/AI Yordamchi" papkasida saqlanadi.
+Kursor chiqib ketsa, menyu yaqin chetga kirib ketadi va shaffof chiziq bo'lib turadi;
+kursor kelishi bilan o'sha joydan chiqib keladi. O'lcham, rang va funksiyalar Sozlamalarda. Barcha yozishmalar "Hujjatlar/AI Yordamchi" papkasida saqlanadi.
 
 by Sunnatilla Designer — https://sunnatilla-designer.uz/
 """
@@ -19,21 +19,25 @@ import json
 import os
 import re
 import sys
+import time
 import urllib.parse
 
 import requests
-from PySide6.QtCore import (QByteArray, QPoint, QRect, QRectF, QSize,
-                            QStandardPaths, Qt, QThread, QTimer, QUrl, Signal)
-from PySide6.QtGui import (QColor, QDesktopServices, QGuiApplication, QIcon,
-                           QKeySequence, QLinearGradient, QPainter, QPixmap,
-                           QShortcut)
+from PySide6.QtCore import (QByteArray, QEasingCurve, QEvent,
+                            QParallelAnimationGroup, QPoint, QPropertyAnimation,
+                            QRect, QRectF, QSize, QStandardPaths, Qt, QThread,
+                            QTimer, QUrl, Signal)
+from PySide6.QtGui import (QColor, QCursor, QDesktopServices, QGuiApplication,
+                           QIcon, QKeySequence, QLinearGradient, QPainter,
+                           QPixmap, QShortcut)
 from PySide6.QtSvg import QSvgRenderer
 from PySide6.QtWidgets import (QApplication, QButtonGroup, QCheckBox,
-                               QComboBox, QDialog, QFrame,
+                               QColorDialog, QComboBox, QDialog, QFrame,
                                QGraphicsDropShadowEffect, QHBoxLayout, QLabel,
                                QLineEdit, QMenu, QPlainTextEdit, QPushButton,
-                               QSystemTrayIcon, QToolButton, QVBoxLayout,
-                               QWidget)
+                               QScrollArea, QSlider, QSystemTrayIcon,
+                               QToolButton,
+                               QVBoxLayout, QWidget)
 
 APP_NAME = "AI Yordamchi"
 API_URL = "https://api.openai.com/v1/chat/completions"
@@ -54,6 +58,42 @@ C_TEXT = "#111827"
 C_MUTED = "#8A8FA3"
 
 SCALES = {"Kichik": 0.8, "O'rta": 1.0, "Katta": 1.2, "Juda katta": 1.4}
+
+# Asosiy rang (chet chizig'i va tugmalar). Birinchisi — asl (eski) rang.
+COLORS = [("Asl rang", C_ACCENT), ("Ko'k", "#2563EB"), ("Binafsha", "#7C3AED"),
+          ("Yashil", "#16A34A"), ("Qizil", "#DC2626"), ("Apelsin", "#EA580C"),
+          ("Pushti", "#DB2777")]
+
+
+def accent_text(color: str) -> str:
+    """Rang ustidagi yozuv uchun oq yoki qora."""
+    c = QColor(color)
+    lum = 0.299 * c.red() + 0.587 * c.green() + 0.114 * c.blue()
+    return "#111827" if lum > 170 else "#FFFFFF"
+
+
+def set_autostart(on: bool) -> None:
+    """Windows yonganda dasturni avtomatik ishga tushirish."""
+    if sys.platform != "win32":
+        return
+    import winreg
+    key = winreg.OpenKey(winreg.HKEY_CURRENT_USER,
+                         r"Software\Microsoft\Windows\CurrentVersion\Run", 0,
+                         winreg.KEY_SET_VALUE)
+    try:
+        if on:
+            if getattr(sys, "frozen", False):
+                cmd = f'"{sys.executable}"'
+            else:
+                cmd = f'"{sys.executable}" "{os.path.abspath(__file__)}"'
+            winreg.SetValueEx(key, APP_NAME, 0, winreg.REG_SZ, cmd)
+        else:
+            try:
+                winreg.DeleteValue(key, APP_NAME)
+            except FileNotFoundError:
+                pass
+    finally:
+        winreg.CloseKey(key)
 
 # ---------------------------------------------------------------------------
 # Ikonkalar — qalin, to'q uslubda (lupa rasmidagidek)
@@ -277,7 +317,8 @@ def config_path() -> str:
 def load_config() -> dict:
     cfg = {"api_key": "", "model": DEFAULT_MODEL, "rx": None, "ry": None,
            "pinned": True, "lang": "O'zbekcha (lotin)", "size": "O'rta",
-           "modes": [m["key"] for m in MODES]}
+           "modes": [m["key"] for m in MODES], "auto_hide": True, "color": C_ACCENT,
+           "line_opacity": 55, "autostart": False}
     try:
         with open(config_path(), encoding="utf-8") as f:
             cfg.update(json.load(f))
@@ -290,6 +331,12 @@ def load_config() -> dict:
     if cfg.get("size") not in SCALES:
         cfg["size"] = "O'rta"
     cfg["modes"] = [k for k in cfg.get("modes", []) if k in MODE_BY_KEY]
+    if not QColor(str(cfg.get("color"))).isValid():
+        cfg["color"] = C_ACCENT
+    try:
+        cfg["line_opacity"] = max(15, min(100, int(cfg.get("line_opacity", 55))))
+    except (TypeError, ValueError):
+        cfg["line_opacity"] = 55
     return cfg
 
 
@@ -479,9 +526,20 @@ class SettingsDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle(f"{APP_NAME} — Sozlamalar")
         self.setWindowFlag(Qt.WindowStaysOnTopHint, True)
-        self.setMinimumWidth(int(460 * s))
-        lay = QVBoxLayout(self)
-        lay.setContentsMargins(int(24 * s), int(20 * s), int(24 * s), int(18 * s))
+        self.setMinimumWidth(int(480 * s))
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, int(16 * s))
+        outer.setSpacing(0)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        inner = QWidget()
+        inner.setObjectName("settingsBody")
+        scroll.setWidget(inner)
+        outer.addWidget(scroll, 1)
+        lay = QVBoxLayout(inner)
+        lay.setContentsMargins(int(24 * s), int(20 * s), int(24 * s), int(8 * s))
         lay.setSpacing(int(8 * s))
 
         t = QLabel("Sozlamalar")
@@ -525,6 +583,57 @@ class SettingsDialog(QDialog):
             seg.addWidget(b)
         lay.addLayout(seg)
 
+        # Rang
+        lay.addSpacing(int(8 * s))
+        lay.addWidget(self._section("Rang (chet chizig'i va tugmalar)"))
+        crow = QHBoxLayout()
+        crow.setSpacing(int(8 * s))
+        self.color = cfg.get("color", C_ACCENT)
+        self.color_group = QButtonGroup(self)
+        known = False
+        d = int(28 * s)
+        for name, col in COLORS:
+            sw = self._swatch(col, name, d)
+            if col.lower() == self.color.lower():
+                sw.setChecked(True)
+                known = True
+            crow.addWidget(sw)
+        self.custom_sw = self._swatch(self.color if not known else "#FFFFFF", "Boshqa rang", d)
+        self.custom_sw.setVisible(not known)
+        self.custom_sw.setChecked(not known)
+        crow.addWidget(self.custom_sw)
+        more = QPushButton("Boshqa…")
+        more.setCursor(Qt.PointingHandCursor)
+        more.clicked.connect(self._pick_color)
+        crow.addWidget(more)
+        crow.addStretch()
+        lay.addLayout(crow)
+
+        # Avtomatik yashirish
+        lay.addSpacing(int(8 * s))
+        lay.addWidget(self._section("Yashirinish va orqa fon"))
+        self.auto_hide = QCheckBox("  Kursor chiqqach chetga kirib ketsin (shaffof chiziq "
+                                   "bo'lib tursin)")
+        self.auto_hide.setChecked(cfg.get("auto_hide", True))
+        self.auto_hide.setCursor(Qt.PointingHandCursor)
+        lay.addWidget(self.auto_hide)
+        orow = QHBoxLayout()
+        orow.addWidget(QLabel("Chiziq ko'rinishi:"))
+        self.opacity = QSlider(Qt.Horizontal)
+        self.opacity.setRange(15, 100)
+        self.opacity.setValue(int(cfg.get("line_opacity", 55)))
+        orow.addWidget(self.opacity, 1)
+        self.opacity_lbl = QLabel(f"{self.opacity.value()}%")
+        self.opacity_lbl.setMinimumWidth(int(40 * s))
+        self.opacity.valueChanged.connect(lambda v: self.opacity_lbl.setText(f"{v}%"))
+        orow.addWidget(self.opacity_lbl)
+        lay.addLayout(orow)
+        self.autostart = QCheckBox("  Kompyuter yonganda o'zi ishga tushsin")
+        self.autostart.setChecked(cfg.get("autostart", False))
+        self.autostart.setCursor(Qt.PointingHandCursor)
+        self.autostart.setEnabled(sys.platform == "win32")
+        lay.addWidget(self.autostart)
+
         # Funksiyalar
         lay.addSpacing(int(8 * s))
         lay.addWidget(self._section("Funksiyalar (panelda ko'rinadiganlari)"))
@@ -555,9 +664,10 @@ class SettingsDialog(QDialog):
         frow.addWidget(fbtn)
         lay.addLayout(frow)
 
-        # Pastki qator: muallif + tugmalar
-        lay.addSpacing(int(14 * s))
+        # Pastki qator: muallif + tugmalar (har doim ko'rinib turadi)
+        lay.addStretch()
         bottom = QHBoxLayout()
+        bottom.setContentsMargins(int(24 * s), int(10 * s), int(24 * s), 0)
         credit = QLabel(f'<a href="{AUTHOR_URL}" style="color:{C_MUTED};text-decoration:none;">'
                         f'by <b style="color:{C_TEXT};">{AUTHOR}</b></a>')
         credit.setObjectName("credit")
@@ -574,7 +684,13 @@ class SettingsDialog(QDialog):
         ok.clicked.connect(self.accept)
         bottom.addWidget(cancel)
         bottom.addWidget(ok)
-        lay.addLayout(bottom)
+        outer.addLayout(bottom)
+
+        # ekranga sig'adigan balandlik
+        avail = (parent.screen() if parent else QGuiApplication.primaryScreen()).availableGeometry()
+        want = inner.sizeHint().height() + int(80 * s)
+        self.resize(max(self.minimumWidth(), inner.sizeHint().width() + 20),
+                    min(want, int(avail.height() * 0.9)))
 
     @staticmethod
     def _section(text):
@@ -582,21 +698,87 @@ class SettingsDialog(QDialog):
         lbl.setObjectName("section")
         return lbl
 
+    def _swatch(self, col, tip, d):
+        b = QPushButton()
+        b.setCheckable(True)
+        b.setFixedSize(d, d)
+        b.setToolTip(tip)
+        b.setCursor(Qt.PointingHandCursor)
+        b.setProperty("color", col)
+        self._style_swatch(b, col, d)
+        b.clicked.connect(lambda _=False, btn=b: self._swatch_clicked(btn))
+        self.color_group.addButton(b)
+        return b
+
+    @staticmethod
+    def _style_swatch(b, col, d):
+        b.setStyleSheet(
+            f"QPushButton {{ background: {col}; border: 3px solid #FFFFFF; "
+            f"border-radius: {d // 2}px; padding: 0; min-width: 0; }}"
+            f"QPushButton:checked {{ border: 3px solid #C7CBD4; }}"
+            f"QPushButton:hover {{ border: 3px solid #E3E6EC; }}")
+
+    def _swatch_clicked(self, btn):
+        self.color = btn.property("color")
+
+    def _pick_color(self):
+        c = QColorDialog.getColor(QColor(self.color), self, "Rang tanlang")
+        if c.isValid():
+            self.color = c.name()
+            self.custom_sw.setProperty("color", self.color)
+            self._style_swatch(self.custom_sw, self.color, self.custom_sw.width())
+            self.custom_sw.setVisible(True)
+            self.custom_sw.setChecked(True)
+
     def values(self):
         size = self.size_group.checkedButton().text() if self.size_group.checkedButton() \
             else "O'rta"
         modes = [k for k, c in self.mode_checks.items() if c.isChecked()]
         return {"api_key": self.key.text().strip(),
                 "model": self.model.currentText().strip() or DEFAULT_MODEL,
-                "size": size, "modes": modes}
+                "size": size, "modes": modes, "color": self.color,
+                "auto_hide": self.auto_hide.isChecked(),
+                "line_opacity": self.opacity.value(),
+                "autostart": self.autostart.isChecked()}
 
 
 # ---------------------------------------------------------------------------
 # Asosiy oyna
 # ---------------------------------------------------------------------------
+class EdgeLine(QWidget):
+    """Yashiringanda ekran chetida qoladigan shaffof uzun chiziq."""
+
+    def __init__(self, win):
+        super().__init__(win)
+        self.win = win
+        self.setCursor(Qt.PointingHandCursor)
+        self.setToolTip(APP_NAME)
+
+    def paintEvent(self, e):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        # deyarli ko'rinmas fon — Windows'da sichqonchani "ushlab" turishi uchun
+        p.fillRect(self.rect(), QColor(0, 0, 0, 1))
+        c = QColor(self.win.accent)
+        c.setAlphaF(self.win.cfg.get("line_opacity", 55) / 100.0)
+        p.setBrush(c)
+        p.setPen(Qt.NoPen)
+        lw = max(4, int(6 * self.win.s))
+        x = 2 if self.win.edge_side() == "left" else self.width() - lw - 2
+        p.drawRoundedRect(QRectF(x, 0, lw, self.height()), lw / 2, lw / 2)
+        p.end()
+
+    def enterEvent(self, e):
+        self.win.expand()
+
+    def mousePressEvent(self, e):
+        self.win.expand()
+
+
 class MainWindow(QWidget):
     MARGIN = 18        # soya uchun bo'sh joy
     GAP = 10           # panel va ikonkalar orasidagi masofa
+    EDGE_GAP = 6       # ekran chetidan masofa (yashirinish yoqilganda)
 
     def __init__(self, ctrl):
         super().__init__()
@@ -608,6 +790,11 @@ class MainWindow(QWidget):
         self.drag_off = None
         self.panel_side = "left"
         self._req = None
+        self.accent = self.cfg.get("color", C_ACCENT)
+        self.auto_hide = self.cfg.get("auto_hide", True)
+        self.collapsed = False
+        self.anim = None
+        self._out_since = None
 
         self.setWindowTitle(APP_NAME)
         self.setWindowIcon(QIcon(app_icon()))
@@ -618,6 +805,14 @@ class MainWindow(QWidget):
         self.rail = self._build_rail()
         self.panel = self._build_panel()
         self.panel.hide()
+        self.line = EdgeLine(self)
+        self.line.hide()
+
+        # kursor chiqib ketganini kuzatuvchi taymer
+        self.watch = QTimer(self)
+        self.watch.setInterval(200)
+        self.watch.timeout.connect(self._tick)
+        self.watch.start()
 
         for m in MODES:
             QShortcut(QKeySequence(f"Ctrl+{m['shortcut']}"), self,
@@ -746,7 +941,7 @@ class MainWindow(QWidget):
         row.addWidget(hint)
         self.send_btn = QPushButton("  Yuborish")
         self.send_btn.setObjectName("primary")
-        self.send_btn.setIcon(svg_icon("send", "#FFFFFF", int(16 * s), 2.2))
+        self.send_btn.setIcon(svg_icon("send", accent_text(self.accent), int(16 * s), 2.2))
         self.send_btn.setIconSize(QSize(int(16 * s), int(16 * s)))
         self.send_btn.setCursor(Qt.PointingHandCursor)
         self.send_btn.clicked.connect(self.send)
@@ -787,7 +982,8 @@ class MainWindow(QWidget):
 
     # ---------------- joylashuv (qo'ygan joyida qotib turadi) ----------------
     def apply_flags(self, pinned):
-        flags = Qt.FramelessWindowHint | Qt.Tool
+        # Qt.Tool yo'q — shuning uchun dastur taskbarda ham ko'rinadi
+        flags = Qt.Window | Qt.FramelessWindowHint
         if pinned:
             flags |= Qt.WindowStaysOnTopHint
         visible = self.isVisible()
@@ -815,7 +1011,120 @@ class MainWindow(QWidget):
         g = self._screen_for(QRect(pos, size).center())
         x = max(g.left(), min(pos.x(), g.right() + 1 - size.width()))
         y = max(g.top(), min(pos.y(), g.bottom() + 1 - size.height()))
+        if self.auto_hide:
+            # yashirinish yoqilgan bo'lsa — yaqin chetga yopishadi (balandligi erkin)
+            if x + size.width() // 2 < g.center().x():
+                x = g.left() + self.EDGE_GAP
+            else:
+                x = g.right() + 1 - size.width() - self.EDGE_GAP
         return QPoint(x, y)
+
+    def edge_side(self):
+        rail_g = QRect(self.rail_pos, self.rail.size())
+        g = self._screen_for(rail_g.center())
+        return "left" if rail_g.center().x() < g.center().x() else "right"
+
+    # ---------------- chetga kirib ketish / chiqib kelish ----------------
+    def _tick(self):
+        """Kursor dasturdan chiqib ketsa — chetga yashirinadi."""
+        busy = (self.worker is not None and self.worker.isRunning())
+        if (not self.auto_hide or self.collapsed or self.drag_off is not None
+                or busy or (self.anim is not None
+                            and self.anim.state() == QParallelAnimationGroup.Running)
+                or QApplication.activeModalWidget() is not None
+                or QApplication.activePopupWidget() is not None):
+            self._out_since = None
+            return
+        inside = self.frameGeometry().adjusted(-4, -4, 4, 4).contains(QCursor.pos())
+        if inside:
+            self._out_since = None
+            return
+        self.bubble.hide()
+        # panel ochiq va foydalanuvchi hali shu oynada ishlayotgan bo'lsa — kutamiz
+        if self.mode is not None and self.isActiveWindow():
+            self._out_since = None
+            return
+        now = time.monotonic()
+        if self._out_since is None:
+            self._out_since = now
+            return
+        delay = 0.5 if self.mode is None else 1.0
+        if now - self._out_since >= delay:
+            self._out_since = None
+            self.collapse()
+
+    def _offscreen_x(self):
+        """Ikonkalar paneli butunlay ekran chetidan tashqarida bo'ladigan oyna x koordinatasi."""
+        g = self._screen_for(QRect(self.rail_pos, self.rail.size()).center())
+        rail_off = self.rail.x()  # oyna ichidagi siljish
+        if self.edge_side() == "left":
+            return g.left() - self.rail.width() - rail_off - 4
+        return g.right() + 1 - rail_off + 4
+
+    def _run_anim(self, end_pos, start_op, end_op, on_done=None):
+        if self.anim is not None:
+            self.anim.stop()
+        grp = QParallelAnimationGroup(self)
+        a = QPropertyAnimation(self, b"pos")
+        a.setDuration(230)
+        a.setEasingCurve(QEasingCurve.OutCubic)
+        a.setEndValue(end_pos)
+        grp.addAnimation(a)
+        o = QPropertyAnimation(self, b"windowOpacity")
+        o.setDuration(230)
+        o.setStartValue(start_op)
+        o.setEndValue(end_op)
+        grp.addAnimation(o)
+        if on_done:
+            grp.finished.connect(on_done)
+        self.anim = grp
+        grp.start()
+
+    def collapse(self):
+        if self.collapsed:
+            return
+        self.bubble.hide()
+        if self.mode is not None:     # ish tugadi — panel yopiladi (matn saqlanib qoladi)
+            self.close_panel()
+        self.collapsed = True
+        self._run_anim(QPoint(self._offscreen_x(), self.y()), 1.0, 0.0, self._show_line)
+
+    def _show_line(self):
+        if not self.collapsed:
+            return
+        self.rail.hide()
+        rail_g = QRect(self.rail_pos, self.rail.size())
+        g = self._screen_for(rail_g.center())
+        hit_w = max(10, int(12 * self.s))
+        line_h = max(90, int(rail_g.height() * 0.6))
+        y = rail_g.center().y() - line_h // 2
+        x = g.left() if self.edge_side() == "left" else g.right() + 1 - hit_w
+        self.setFixedSize(hit_w, line_h)
+        self.move(x, y)
+        self.line.setGeometry(0, 0, hit_w, line_h)
+        self.line.show()
+        self.setWindowOpacity(1.0)
+
+    def expand(self):
+        if not self.collapsed:
+            return
+        self.collapsed = False
+        self._out_since = None
+        self.line.hide()
+        self.rail.show()
+        self.layout_children()
+        target = self.pos()
+        self.move(self._offscreen_x(), target.y())
+        self.setWindowOpacity(0.0)
+        self._run_anim(target, 0.0, 1.0)
+
+    def changeEvent(self, e):
+        if e.type() == QEvent.WindowStateChange and self.isMinimized():
+            # taskbardan bosilganda yo'qolib qolmasin
+            QTimer.singleShot(0, lambda: (self.showNormal(), self.expand()))
+        elif e.type() == QEvent.ActivationChange and self.isActiveWindow() and self.collapsed:
+            QTimer.singleShot(0, self.expand)   # taskbardagi ikonkani bosganda
+        super().changeEvent(e)
 
     def layout_children(self):
         """Ikonkalar paneli joyidan qimirlamaydi; ish paneli bo'sh tomonga ochiladi."""
@@ -908,12 +1217,16 @@ class MainWindow(QWidget):
     def open_mode(self, key):
         if key not in self.mode_buttons:
             return
+        if self.collapsed:
+            self.expand()
+            QTimer.singleShot(260, lambda: self.open_mode(key))
+            return
         m = MODE_BY_KEY[key]
         was_open = self.mode is not None
         self.mode = key
         self._set_checked(key)
         isz = int(22 * self.s)
-        self.p_icon.setPixmap(svg_pixmap(m["icon"], C_ACCENT, isz))
+        self.p_icon.setPixmap(svg_pixmap(m["icon"], self.accent, isz))
         self.p_title.setText(m["title"])
         self.input.setPlaceholderText(m["placeholder"])
         self.input.viewport().update()          # eski yozuv qolib ketmasligi uchun
@@ -982,9 +1295,17 @@ class MainWindow(QWidget):
         dlg = SettingsDialog(self, self.cfg, self.s)
         if dlg.exec():
             v = dlg.values()
-            need_rebuild = v["size"] != self.cfg.get("size") or v["modes"] != self.cfg.get("modes")
+            need_rebuild = any(v[k] != self.cfg.get(k)
+                               for k in ("size", "modes", "color", "auto_hide"))
+            if v["autostart"] != self.cfg.get("autostart"):
+                try:
+                    set_autostart(v["autostart"])
+                except Exception as e:  # noqa: BLE001
+                    v["autostart"] = self.cfg.get("autostart", False)
+                    self.status.setText(f"Avto-ishga tushirishni sozlab bo'lmadi: {e}")
             self.cfg.update(v)
             save_config(self.cfg)
+            self.line.update()
             if need_rebuild:
                 QTimer.singleShot(0, self.ctrl.rebuild)
             elif self.mode:
@@ -1041,8 +1362,13 @@ class MainWindow(QWidget):
         self.show()
         self.raise_()
         self.activateWindow()
+        if self.collapsed:
+            self.expand()
 
     def dispose(self):
+        self.watch.stop()
+        if self.anim is not None:
+            self.anim.stop()
         self.bubble.close()
         self.bubble.deleteLater()
         self.close()
@@ -1071,7 +1397,10 @@ def ensure_arrow_image():
     ARROW_PATH = path.replace("\\", "/")
 
 
-def make_style(s: float) -> str:
+def make_style(s: float, accent: str = C_ACCENT) -> str:
+    on_accent = accent_text(accent)
+    accent_hover = QColor(accent).darker(125).name()
+
     def px(v):
         return f"{max(1, round(v * s))}px"
     return f"""
@@ -1095,11 +1424,11 @@ QPlainTextEdit:focus {{ border: 1px solid #9CA3AF; background: #FFFFFF; }}
 QPushButton {{ border: 1px solid {C_BORDER}; border-radius: {px(12)}; padding: {px(8)} {px(16)};
     background: #FFFFFF; font-weight: 600; }}
 QPushButton:hover {{ background: {C_HOVER}; }}
-QPushButton#primary {{ background: {C_ACCENT}; color: white; border: none; }}
-QPushButton#primary:hover {{ background: #000000; }}
+QPushButton#primary {{ background: {accent}; color: {on_accent}; border: none; }}
+QPushButton#primary:hover {{ background: {accent_hover}; }}
 QPushButton#primary:disabled {{ background: #9CA3AF; }}
 QPushButton#seg {{ padding: {px(7)} {px(10)}; font-weight: 600; }}
-QPushButton#seg:checked {{ background: {C_ACCENT}; color: white; border: 1px solid {C_ACCENT}; }}
+QPushButton#seg:checked {{ background: {accent}; color: {on_accent}; border: 1px solid {accent}; }}
 QComboBox {{ border: 1px solid {C_BORDER}; border-radius: {px(10)}; padding: {px(5)} {px(10)};
     background: #FFFFFF; min-width: {px(120)}; }}
 QComboBox::drop-down {{ border: none; width: {px(26)}; subcontrol-origin: padding;
@@ -1110,7 +1439,7 @@ QComboBox QAbstractItemView {{ border: 1px solid {C_BORDER}; selection-backgroun
 QLineEdit {{ border: 1px solid {C_BORDER}; border-radius: {px(10)}; padding: {px(8)} {px(10)}; }}
 QLineEdit:focus {{ border: 1px solid #9CA3AF; }}
 QCheckBox {{ padding: {px(4)} 0; spacing: {px(8)}; }}
-QDialog {{ background: #FFFFFF; }}
+QDialog, #settingsBody, QScrollArea {{ background: #FFFFFF; }}
 #bubble {{ background: {C_BG}; border: 1px solid {C_BORDER}; border-radius: {px(16)}; }}
 #bubbleText {{ font-size: {px(15)}; font-weight: 500; color: {C_TEXT}; }}
 #keycap {{ background: #FFFFFF; border: 1px solid #DADDE5; border-bottom: 2px solid #D0D4DD;
@@ -1150,7 +1479,8 @@ class Controller:
         old = self.win
         if not ARROW_PATH:
             ensure_arrow_image()
-        self.app.setStyleSheet(make_style(SCALES.get(self.cfg.get("size"), 1.0)))
+        self.app.setStyleSheet(make_style(SCALES.get(self.cfg.get("size"), 1.0),
+                                          self.cfg.get("color", C_ACCENT)))
         self.win = MainWindow(self)
         self.win.show()
         if old is not None:

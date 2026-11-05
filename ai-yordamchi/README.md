@@ -19,11 +19,15 @@ Qaysi funksiyalar panelda ko'rinishini **⚙ Sozlamalar** ichida belgilaysiz.
 ## Boshqaruv
 
 - Ekranda faqat ikonkalar turadi. **Yozuv faqat kursor ikonka ustiga borganda** chiqadi.
-- Eng tepada **⋮⋮ tutqich** joylashgan: sudrab, oynani ekranning istalgan joyiga qo'yasiz va u **o'sha joyda qotib turadi**. Yonidagi **✕** dasturni yopadi.
+- **Avtomatik yashirinish:** kursor dasturdan chiqishi bilan menyu yaqin chetga (chap yoki o'ng) sirpanib kirib ketadi va o'rnida **shaffof uzun chiziq** qoladi. Kursor chiziqqa borishi bilan menyu o'sha joydan chiqib keladi. Panelda ishlab bo'lib boshqa oynaga o'tsangiz, panel o'zi yopiladi (yozgan matningiz saqlanib qoladi). Bu funksiyani Sozlamalardan o'chirish mumkin.
+- Eng tepada **⋮⋮ tutqich** joylashgan: sudrab, menyuni yuqoriga/pastga yoki boshqa chetga olib o'tasiz. Yashirinish o'chirilgan bo'lsa, oyna istalgan joyda qotib turadi. Yonidagi **✕** dasturni yopadi.
+- Dastur **taskbarda** ham ko'rinadi va orqa fonda ishlab turadi (soat yonidagi trey ikonkasi ham bor).
 - 📌 **Qadash** tugmasi tepada turadi: oynani hamma dasturlar ustida ushlab turadi.
 - **⚙ Sozlamalar** ichida:
   - API kalit va model;
   - **o'lcham**: Kichik / O'rta / Katta / Juda katta;
+  - **rang**: asl rang yoki boshqa rang (chet chizig'i va tugmalar uchun), chiziq shaffofligi;
+  - avtomatik yashirinish va **kompyuter yonganda o'zi ishga tushish**;
   - funksiyalarni yoqish/o'chirish;
   - **yozishmalar papkasi** (Hujjatlar\AI Yordamchi): har kun uchun alohida `.md` fayl;
   - **by Sunnatilla Designer** yozuvi: bosilsa https://sunnatilla-designer.uz/ sayti ochiladi.
