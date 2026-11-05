@@ -1,29 +1,37 @@
 # AI Yordamchi
 
-Ekran chetiga yopishib turadigan kichik yordamchi (Windows, `.exe`). ChatGPT (OpenAI API) yordamida ishlaydi.
+Ekranda hamma dasturlar ustida turadigan kichik yordamchi (Windows, `.exe`). ChatGPT (OpenAI API) yordamida ishlaydi.
 
-## Nimalar qiladi
+**Yuklab olish:** https://github.com/sunnatillaavazovofficial-jpg/ads/releases/latest/download/AI-Yordamchi.exe (GitHub akkaunti shart emas)
+
+## Funksiyalar
 
 | Ikonka | Vazifa | Tugma |
 |---|---|---|
-| 文A | **Tarjima**: O'zbekcha (lotin), Türkçe, English, Русский | `Ctrl+1` |
+| 文A | **Tarjima**: o'zbekcha (yangi alifbo / lotin / kirill), English, Русский | `Ctrl+1` |
 | A✓ | **Grammatika**: xatolarni topadi, matnni ma'noli qilib to'g'rilaydi va xatolarni tushuntiradi | `Ctrl+2` |
-| UZ | **O'zbekcha yangi lotin**: kirill yoki boshqa tildagi matnni yangi lotinda yozadi | `Ctrl+3` |
-| TR | **Türkçe**: turk tilida to'g'ri yozib beradi | `Ctrl+4` |
+| Öz | **Yangi alifbo**: avval xatolarni to'g'rilaydi, keyin yangi o'zbek lotin alifbosida yozadi (Oʻ→Ö, Gʻ→Ğ, Sh→Ş, Ch→Ç) | `Ctrl+3` |
+| Ўз | **Kirill**: avval xatolarni to'g'rilaydi, keyin o'zbek kirill yozuvida yozadi | `Ctrl+4` |
 | 🔍 | **Inglizcha nima deb izlash**: narsa yoki xususiyatini tasvirlasangiz, inglizcha nomini va qidiruv so'zlarini beradi (Google tugmasi bilan) | `Ctrl+5` |
 
-- Faqat ikonkalar ko'rinadi, **yozuv faqat kursor ikonka ustiga borganda** chiqadi.
-- 📌 **Qadash**: oyna hamma dasturlar ustida turadi (o'chirib qo'yish mumkin).
-- Tepadagi **⋮⋮ tutqich** bilan sudrab, ekranning **chap** yoki **o'ng** tomoniga qo'ying: chapga qo'ysangiz ikonkalar chapda, o'ngga qo'ysangiz o'ngda turadi.
-- Barcha yozishmalar **Hujjatlar\AI Yordamchi\YYYY-MM-DD.md** fayllarida saqlanadi (📁 tugmasi papkani ochadi).
-- `Ctrl+Enter` yuborish, `Esc` panelni yopish. Trey (soat yonidagi) ikonkasidan ham boshqarsa bo'ladi.
+Qaysi funksiyalar panelda ko'rinishini **⚙ Sozlamalar** ichida belgilaysiz.
 
-## .exe ni olish
+## Boshqaruv
 
-**1-usul (eng oson):** to'g'ridan-to'g'ri yuklab oling — https://github.com/sunnatillaavazovofficial-jpg/ads/releases/latest/download/AI-Yordamchi.exe (GitHub akkaunti shart emas). Har bir yangi build avtomatik **Releases** bo'limiga joylanadi.
+- Ekranda faqat ikonkalar turadi. **Yozuv faqat kursor ikonka ustiga borganda** chiqadi.
+- Eng tepada **⋮⋮ tutqich** joylashgan: sudrab, oynani ekranning istalgan joyiga qo'yasiz va u **o'sha joyda qotib turadi**. Yonidagi **✕** dasturni yopadi.
+- 📌 **Qadash** tugmasi tepada turadi: oynani hamma dasturlar ustida ushlab turadi.
+- **⚙ Sozlamalar** ichida:
+  - API kalit va model;
+  - **o'lcham**: Kichik / O'rta / Katta / Juda katta;
+  - funksiyalarni yoqish/o'chirish;
+  - **yozishmalar papkasi** (Hujjatlar\AI Yordamchi): har kun uchun alohida `.md` fayl;
+  - **by Sunnatilla Designer** yozuvi: bosilsa https://sunnatilla-designer.uz/ sayti ochiladi.
+- `Ctrl+Enter` yuboradi, `Esc` panelni yopadi.
 
-**2-usul: o'z kompyuteringizda.** Windows'da Python 3.10+ o'rnating, so'ng shu papkada `build.bat` ni ikki marta bosib ishga tushiring (Python o'rnatishda "Add python.exe to PATH" belgisini qo'ying). Natija: `dist\AI-Yordamchi.exe`.
+## O'zingiz yig'moqchi bo'lsangiz
 
-## Birinchi ishga tushirish
+Windows'da Python 3.10+ o'rnating ("Add python.exe to PATH" belgisini qo'ying), so'ng shu papkadagi `build.bat` ni ikki marta bosing. Natija: `dist\AI-Yordamchi.exe`.
 
-⚙ **Sozlamalar** tugmasini bosib OpenAI API kalitini kiriting (https://platform.openai.com/api-keys). Model standart holatda `gpt-4o-mini` (arzon va tez); xohlasangiz boshqasini tanlang.
+---
+by [Sunnatilla Designer](https://sunnatilla-designer.uz/)
