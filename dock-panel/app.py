@@ -19,9 +19,11 @@ import re
 import shutil
 import sys
 import threading
+import time
 
-from PySide6.QtCore import (QByteArray, QEvent, QFileInfo, QMimeData, QObject, QPoint,
-                            QPointF, QProcess, QRect, QRectF, QSize,
+from PySide6.QtCore import (QByteArray, QEasingCurve, QEvent, QFileInfo, QMimeData,
+                            QObject, QParallelAnimationGroup, QPoint, QPointF,
+                            QProcess, QPropertyAnimation, QRect, QRectF, QSize,
                             QStandardPaths, Qt, QTimer, QUrl, Signal)
 from PySide6.QtGui import (QColor, QCursor, QDesktopServices, QDrag, QFont,
                            QFontMetrics, QGuiApplication, QIcon,
@@ -49,8 +51,8 @@ C_HOVER = "#EEF0F5"
 C_ICON = "#16181D"
 C_ACCENT = "#111827"
 
-ICON_SIZES = {"Kichik": 40, "O'rta": 52, "Katta": 64, "Juda katta": 80}
-ICON_MIN, ICON_MAX = 32, 96
+ICON_SIZES = {"Kichik": 24, "O'rta": 32, "Katta": 48, "Juda katta": 64}
+ICON_MIN, ICON_MAX = 20, 96
 EDGES = {"bottom": "Pastda", "top": "Tepada", "left": "Chapda", "right": "O'ngda"}
 THEMES = ["Avto", "Och", "To'q"]
 APP_EXT = {".exe", ".lnk", ".bat", ".cmd", ".url", ".appref-ms"}
@@ -139,8 +141,9 @@ def default_items():
 
 
 def load_config() -> dict:
-    cfg = {"items": None, "stack_dir": std(QStandardPaths.DownloadLocation), "icon_px": 52,
-           "edge": "bottom", "idle": 70, "theme": "Avto", "hide_taskbar": True, "autostart": True}
+    cfg = {"items": None, "stack_dir": std(QStandardPaths.DownloadLocation), "icon_px": 24,
+           "edge": "top", "idle": 70, "theme": "Avto", "hide_taskbar": True, "autostart": True,
+           "auto_hide": True}
     try:
         with open(config_path(), encoding="utf-8") as f:
             cfg.update(json.load(f))
@@ -148,8 +151,12 @@ def load_config() -> dict:
         pass
     if cfg.get("items") is None:
         cfg["items"] = default_items()
-    if "size" in cfg:                                   # eski versiyadan o'tish
-        cfg["icon_px"] = ICON_SIZES.get(cfg.pop("size"), 52)
+    cfg.pop("size", None)                               # eski versiyalardan o'tish
+    if not cfg.get("v3"):
+        cfg["icon_px"] = 24                             # yangi standart: 24 px, faqat tepada
+        cfg["auto_hide"] = True
+        cfg["v3"] = True
+    cfg["edge"] = "top"
     try:
         cfg["icon_px"] = max(ICON_MIN, min(ICON_MAX, int(cfg.get("icon_px", 52))))
     except (TypeError, ValueError):
@@ -381,7 +388,7 @@ class FileOps(QObject):
 # Dok-panelning o'zi
 # ---------------------------------------------------------------------------
 class DockView(QWidget):
-    """Dok-panel. Ekranning istalgan chetida (past/tepa/chap/o'ng) turadi."""
+    """Dok-panel. Ekranning tepasida turadi; kursor chiqqach tepaga kirib ketadi."""
 
     def __init__(self, ctrl):
         super().__init__(None, Qt.Tool | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
@@ -400,15 +407,23 @@ class DockView(QWidget):
         self.moving = None            # panelni sudrab joyini o'zgartirish
         self.items = []
         self.dark, self.tint = effective_theme(self.cfg)
+        self.collapsed = False
+        self.slide = None
+        self._out_since = None
+        self._born = time.monotonic()     # ochilganda bir marta ko'rinib, keyin yashirinadi
         self.anim = QTimer(self)
         self.anim.setInterval(16)
         self.anim.timeout.connect(self._step)
+        self.watch = QTimer(self)
+        self.watch.setInterval(200)
+        self.watch.timeout.connect(self._tick)
+        self.watch.start()
         self.rebuild_items()
 
     # ---------- yo'nalish ----------
     @property
     def edge(self):
-        return self.cfg.get("edge", "bottom")
+        return "top"                      # panel faqat tepada turadi
 
     @property
     def horizontal(self):
@@ -458,9 +473,9 @@ class DockView(QWidget):
         gap = round(B * 0.26)
         rise = round(B * 0.30)
         grow = 0.20
-        label = round(B * 0.60) if self.horizontal else round(B * 0.6) + 170
+        label = max(round(B * 0.60), 40) if self.horizontal else round(B * 0.6) + 170
         sep = gap + 2 if (self.n_pinned and len(self.items) > self.n_pinned) else 0
-        grip = round(B * 0.32)                                # uchlaridagi ushlash joyi (sudrash uchun)
+        grip = 0
         n = max(1, len(self.items))
         length = 2 * (pad + grip) + n * B + (n - 1) * gap + sep   # panel uzunligi
         thick = B + 2 * pad                                   # panel qalinligi
@@ -479,7 +494,7 @@ class DockView(QWidget):
         if e == "bottom":
             return QRectF(m["side"], m["space"], m["length"], m["thick"])
         if e == "top":
-            return QRectF(m["side"], 10, m["length"], m["thick"])
+            return QRectF(m["side"], 4, m["length"], m["thick"])
         if e == "left":
             return QRectF(10, m["side"], m["thick"], m["length"])
         return QRectF(m["space"], m["side"], m["thick"], m["length"])
@@ -520,9 +535,21 @@ class DockView(QWidget):
         self.reposition()
         self.update()
 
+    def home_pos(self):
+        g = QGuiApplication.primaryScreen().availableGeometry()
+        return QPoint(g.center().x() - self.width() // 2, g.top())
+
     def reposition(self):
+        if self.collapsed:
+            self.ctrl.tab.place()
+            return
+        if self.slide is not None and self.slide.state() == QParallelAnimationGroup.Running:
+            return
         g = QGuiApplication.primaryScreen().availableGeometry()
         e = self.edge
+        if e == "top":
+            self.move(self.home_pos())
+            return
         if e == "bottom":
             self.move(g.center().x() - self.width() // 2, g.bottom() - self.height() - 2)
         elif e == "top":
@@ -531,6 +558,75 @@ class DockView(QWidget):
             self.move(g.left() + 2, g.center().y() - self.height() // 2)
         else:
             self.move(g.right() - self.width() - 2, g.center().y() - self.height() // 2)
+
+    # ---------- tepaga kirib ketish / chiqib kelish (AI Yordamchi kabi) ----------
+    def _tick(self):
+        busy = (self.collapsed or not self.cfg.get("auto_hide", True) or not self.isVisible()
+                or self.drop is not None or self.drag_idx is not None or self.press is not None
+                or self.ctrl.stack is not None
+                or (self.slide is not None and self.slide.state() == QParallelAnimationGroup.Running)
+                or QApplication.activePopupWidget() is not None
+                or QApplication.activeModalWidget() is not None
+                or time.monotonic() - self._born < 3.0)
+        if busy or self.frameGeometry().adjusted(-6, -6, 6, 6).contains(QCursor.pos()):
+            self._out_since = None
+            return
+        now = time.monotonic()
+        if self._out_since is None:
+            self._out_since = now
+        elif now - self._out_since >= 0.6:
+            self._out_since = None
+            self.collapse()
+
+    def _slide(self, end_pos, a, b, on_done=None):
+        if self.slide is not None:
+            self.slide.stop()
+        grp = QParallelAnimationGroup(self)
+        pa = QPropertyAnimation(self, b"pos")
+        pa.setDuration(220)
+        pa.setEasingCurve(QEasingCurve.OutCubic)
+        pa.setEndValue(end_pos)
+        grp.addAnimation(pa)
+        oa = QPropertyAnimation(self, b"windowOpacity")
+        oa.setDuration(220)
+        oa.setStartValue(a)
+        oa.setEndValue(b)
+        grp.addAnimation(oa)
+        if on_done:
+            grp.finished.connect(on_done)
+        self.slide = grp
+        grp.start()
+
+    def collapse(self):
+        if self.collapsed:
+            return
+        self.collapsed = True
+        self.hover = None
+        hp = self.home_pos()
+        self._slide(QPoint(hp.x(), hp.y() - self.height()), 1.0, 0.0, self._hidden)
+
+    def _hidden(self):
+        if not self.collapsed:
+            return
+        self.hide()
+        self.setWindowOpacity(1.0)
+        self.ctrl.tab.place()
+        self.ctrl.tab.show()
+        self.ctrl.tab.raise_()
+
+    def expand(self):
+        if not self.collapsed:
+            return
+        self.collapsed = False
+        self._out_since = None
+        self._born = time.monotonic() - 2.0          # chiqqandan keyin ~1 soniya yashirinmaydi
+        self.ctrl.tab.hide()
+        hp = self.home_pos()
+        self.move(hp.x(), hp.y() - self.height())
+        self.setWindowOpacity(0.0)
+        self.show()
+        self.raise_()
+        self._slide(hp, 0.0, 1.0)
 
     # ---------- animatsiya ----------
     def _kick(self):
@@ -600,21 +696,6 @@ class DockView(QWidget):
             else:
                 p.drawLine(QPointF(pr.left() + k, c), QPointF(pr.right() - k, c))
 
-        if a > 0.05:                                             # ushlash nuqtalari (⋮)
-            dot = QColor(line_col)
-            dot.setAlpha(int(dot.alpha() * 2.2 * a))
-            p.setPen(Qt.NoPen)
-            p.setBrush(dot)
-            r0 = max(1.6, m["B"] * 0.035)
-            for c in (m["side"] + m["grip"] * 0.62,
-                      m["side"] + m["length"] - m["grip"] * 0.62):
-                for k in (-1, 0, 1):
-                    off = k * r0 * 3.2
-                    if self.horizontal:
-                        p.drawEllipse(QPointF(c, pr.center().y() + off), r0, r0)
-                    else:
-                        p.drawEllipse(QPointF(pr.center().x() + off, c), r0, r0)
-
         idle = self.cfg.get("idle", 70) / 100.0
         hovered = None
         for i, it in enumerate(self.items):
@@ -683,11 +764,6 @@ class DockView(QWidget):
 
     def _set_hover(self, pos):
         self.hover = self.main(pos) if self.hover_rect().contains(QPointF(pos)) else None
-        on_grip = self.panel_rect().contains(QPointF(pos)) and self.item_at(pos) is None
-        if on_grip:
-            self.setCursor(Qt.SizeAllCursor)
-        else:
-            self.unsetCursor()
         self._kick()
 
     def mouseMoveEvent(self, e):
@@ -700,11 +776,7 @@ class DockView(QWidget):
             p0, idx = self.press
             if (pos - p0).manhattanLength() > QApplication.startDragDistance():
                 self.press = None
-                if idx is None:
-                    self.moving = e.globalPosition() - QPointF(self.pos())
-                    self.setCursor(Qt.SizeAllCursor)
-                    self._kick()
-                elif idx < self.n_pinned:
+                if idx is not None and idx < self.n_pinned:
                     self._drag_item(idx)
 
     def leaveEvent(self, e):
@@ -765,11 +837,6 @@ class DockView(QWidget):
             menu.addSeparator()
         menu.addAction("Fayl yoki dastur qo'shish…", self.ctrl.add_file)
         menu.addAction("Papka qo'shish…", self.ctrl.add_folder)
-        pos_menu = menu.addMenu("Joylashuv")
-        for key, title in EDGES.items():
-            a = pos_menu.addAction(title, lambda k=key: self.set_edge(k))
-            a.setCheckable(True)
-            a.setChecked(key == self.edge)
         size_menu = menu.addMenu("O'lcham")
         for title, px in ICON_SIZES.items():
             a = size_menu.addAction(f"{title}  ({px}px)", lambda v=px: self.set_icon_px(v))
@@ -900,6 +967,52 @@ class DockView(QWidget):
             e.setDropAction(Qt.LinkAction)
             e.accept()
         self._kick()
+
+
+# ---------------------------------------------------------------------------
+# Yashiringanda ekran tepasida qoladigan shaffof chiziq
+# ---------------------------------------------------------------------------
+class EdgeTab(QWidget):
+    def __init__(self, ctrl):
+        super().__init__(None, Qt.Tool | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
+        self.ctrl = ctrl
+        self.setAttribute(Qt.WA_TranslucentBackground)
+        self.setAttribute(Qt.WA_ShowWithoutActivating)
+        self.setAcceptDrops(True)
+        self.setCursor(Qt.PointingHandCursor)
+        self.setToolTip(APP_NAME)
+
+    def place(self):
+        dock = self.ctrl.dock
+        g = QGuiApplication.primaryScreen().geometry()
+        length = dock.metrics()["length"] if dock is not None else 200
+        w = max(90, min(260, int(length * 0.5)))
+        self.setFixedSize(w, 7)
+        self.move(g.center().x() - w // 2, g.top())
+
+    def paintEvent(self, e):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        p.fillRect(self.rect(), QColor(0, 0, 0, 1))      # Windows'da sichqonchani "ushlab" turishi uchun
+        dock = self.ctrl.dock
+        dark = dock.dark if dock is not None else False
+        tint = dock.tint if dock is not None else None
+        c = QColor(tint) if tint is not None else (QColor(235, 236, 240) if dark else QColor(30, 34, 42))
+        c.setAlpha(150)
+        p.setPen(Qt.NoPen)
+        p.setBrush(c)
+        p.drawRoundedRect(QRectF(0, 1, self.width(), 4), 2, 2)
+        p.end()
+
+    def enterEvent(self, e):
+        self.ctrl.dock.expand()
+
+    def mousePressEvent(self, e):
+        self.ctrl.dock.expand()
+
+    def dragEnterEvent(self, e):
+        self.ctrl.dock.expand()                       # fayl sudrab kelinsa ham chiqadi
+        e.ignore()
 
 
 # ---------------------------------------------------------------------------
@@ -1143,20 +1256,6 @@ class SettingsDialog(QDialog):
         lay.addLayout(row)
 
         lay.addSpacing(6)
-        lay.addWidget(self._section("Joylashuv (panelni sudrab ham o'zgartirsa bo'ladi)"))
-        erow = QHBoxLayout()
-        self.edge_group = QButtonGroup(self)
-        for key, title in EDGES.items():
-            b = QPushButton(title)
-            b.setObjectName("seg")
-            b.setCheckable(True)
-            b.setProperty("key", key)
-            b.setChecked(key == cfg.get("edge"))
-            self.edge_group.addButton(b)
-            erow.addWidget(b)
-        lay.addLayout(erow)
-
-        lay.addSpacing(6)
         lay.addWidget(self._section("Ikonkalar o'lchami (panel ustida Ctrl + g'ildirakcha)"))
         srow = QHBoxLayout()
         self.icon_px = QSlider(Qt.Horizontal)
@@ -1205,7 +1304,10 @@ class SettingsDialog(QDialog):
 
         lay.addSpacing(6)
         lay.addWidget(self._section("Windows"))
-        self.hide_tb = QCheckBox("  Windows taskbar'ini yashirish (panel uning o'rnida turadi)")
+        self.auto_hide = QCheckBox("  Kursor chiqqach tepaga kirib ketsin (shaffof chiziq bo'lib tursin)")
+        self.auto_hide.setChecked(cfg.get("auto_hide", True))
+        lay.addWidget(self.auto_hide)
+        self.hide_tb = QCheckBox("  Windows taskbar'ini yashirish")
         self.hide_tb.setChecked(cfg.get("hide_taskbar", True))
         self.hide_tb.setEnabled(sys.platform == "win32")
         lay.addWidget(self.hide_tb)
@@ -1245,10 +1347,9 @@ class SettingsDialog(QDialog):
             self.dir_lbl.setText(d)
 
     def values(self):
-        eb = self.edge_group.checkedButton()
         t = self.theme_group.checkedButton()
         return {"stack_dir": self.stack_dir, "icon_px": self.icon_px.value(),
-                "edge": eb.property("key") if eb else "bottom",
+                "edge": "top", "auto_hide": self.auto_hide.isChecked(),
                 "theme": t.property("key") if t else "Avto", "idle": self.idle.value(),
                 "hide_taskbar": self.hide_tb.isChecked(), "autostart": self.autostart.isChecked()}
 
@@ -1294,6 +1395,7 @@ class Controller:
         save_config(self.cfg)
         self.stack = None
         self.dock = None
+        self.tab = None
         self.ops = FileOps()
         self.ops.finished.connect(self._op_done)
 
@@ -1310,6 +1412,7 @@ class Controller:
         self.tray.show()
 
         self.apply_windows()
+        self.tab = EdgeTab(self)
         self.dock = DockView(self)
         self.dock.show()
         scr = QGuiApplication.primaryScreen()
@@ -1329,6 +1432,7 @@ class Controller:
         dark, tint = effective_theme(self.cfg)
         if self.dock is not None:
             self.dock.set_theme(dark, tint)
+            self.tab.update()
 
     def set_theme_mode(self, mode):
         self.cfg["theme"] = mode
@@ -1407,6 +1511,8 @@ class Controller:
             if tb_changed:
                 self.apply_windows()
             self.dock.B = self.cfg["icon_px"]
+            if not self.cfg.get("auto_hide", True):
+                self.dock.expand()
             self.dock.rebuild_items()
             self.refresh_theme()
             QTimer.singleShot(1200, self.dock.reposition)
@@ -1414,6 +1520,7 @@ class Controller:
     def quit(self):
         if self.stack is not None:
             self.stack.close()
+        self.tab.hide()
         self.restore_taskbar()            # dastur yopilsa — Windows taskbar avvalgi holatiga qaytadi
         self.tray.hide()
         QApplication.quit()
@@ -1451,9 +1558,11 @@ def main():
         conn = server.nextPendingConnection()
         if conn is not None:
             conn.disconnected.connect(conn.deleteLater)
+        if ctrl.dock.collapsed:
+            ctrl.dock.expand()
+        ctrl.dock._born = time.monotonic()
         ctrl.dock.show()
         ctrl.dock.raise_()
-        ctrl.dock.reposition()
     server.newConnection.connect(on_new)
     sys.exit(app.exec())
 
