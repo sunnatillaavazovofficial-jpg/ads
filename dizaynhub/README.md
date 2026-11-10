@@ -24,11 +24,44 @@ Server — sizning kompyuteringiz. Saytga domen orqali kiriladi.
 
 ---
 
+## Qaysi kompyuterga o'rnatiladi?
+
+**Faqat bitta kompyuterga — server bo'ladigan kompyuterga.** Hamma narsa (dastur,
+baza, fayllar, Telegram sessiyalari) o'sha kompyuterda turadi.
+
+- Shu kompyuter **doim yoniq va internetga ulangan** bo'lishi kerak.
+  O'chsa, sayt va bot ham to'xtaydi.
+- Menejer va dizaynerlar **hech narsa o'rnatmaydi** — o'z telefoni yoki kompyuterida
+  brauzerni ochib, domen manzilini yozadi (masalan `https://ish.sizning-domen.uz`).
+- Serverni boshqa kompyuterga ko'chirish: dasturni yangi kompyuterga o'rnating va eski
+  kompyuterdagi **`data`** papkasini va **`.env`** faylini nusxalab qo'ying.
+
+## Qaysi brauzerlardan kiriladi?
+
+| Brauzer | Holati |
+|---|---|
+| Google Chrome (kompyuter, Android) | ✅ |
+| Yandex Browser (kompyuter, Android, iPhone) | ✅ |
+| Safari (Mac, iPhone, iPad) — 15 va yangi versiyalar | ✅ |
+| Microsoft Edge, Firefox, Opera | ✅ |
+
+Telefon ekraniga moslashgan (chap menyu ☰ tugmasi orqali ochiladi).
+Telegramdagi ovozli xabarlar (.ogg) ayrim Safari versiyalarida o'ynamasligi mumkin —
+ular uchun «⬇ Yuklab olish» havolasi bor.
+
+**Domen ulanmasdan oldin** ofisdagi Wi-Fi orqali kirish mumkin: `.env` da `HOST=0.0.0.0`
+qiling, server kompyuterida `ipconfig` buyrug'i bilan IP manzilni bilib oling
+(masalan `192.168.1.15`) va boshqa qurilmalarda `http://192.168.1.15:8000` ni oching.
+Windows «Brandmauer» (Firewall) so'rasa — **Ruxsat berish** ni bosing.
+Bu holatda `COOKIE_SECURE=false` bo'lishi kerak, aks holda tizimga kirib bo'lmaydi.
+
 ## 1. O'rnatish (Windows)
 
 1. **Python 3.11 yoki yangisini** o'rnating: <https://www.python.org/downloads/>
    — o'rnatishda **«Add python.exe to PATH»** ni albatta belgilang.
-2. Ushbu `dizaynhub` papkasini kompyuterga ko'chiring (masalan `C:\DizaynHub`).
+2. Dasturni server kompyuteriga yuklab oling: GitHub'da repozitoriyni oching →
+   **Code → Download ZIP** → arxivni oching va ichidagi `dizaynhub` papkasini
+   masalan `C:\DizaynHub` ga ko'chiring.
 3. `start.bat` ni ikki marta bosing. Birinchi marta kutubxonalar o'rnatiladi (1–2 daqiqa),
    `.env` fayli yaratiladi va sayt ishga tushadi.
 4. Brauzerda oching: <http://127.0.0.1:8000>
@@ -81,7 +114,10 @@ Uyda statik IP bo'lmasa ham ishlaydi va avtomatik HTTPS beradi.
    PUBLIC_URL=https://ish.sizning-domen.uz
    COOKIE_SECURE=true
    ```
-   va dasturni qayta ishga tushiring. Endi sayt `https://ish.sizning-domen.uz` da ochiladi.
+   va dasturni qayta ishga tushiring. Endi sayt `https://ish.sizning-domen.uz` da
+   Chrome, Safari, Yandex va boshqa brauzerlarda, istalgan joydan ochiladi.
+   (`COOKIE_SECURE=true` bo'lganda Wi-Fi orqali `http://192.168...` manzili ishlamaydi —
+   hamma domen orqali kirsin.)
 
 > Muqobil yo'l: routerda 8000-portni ochish + statik IP + Caddy/Nginx (HTTPS uchun).
 > Bunda `.env` da `HOST=0.0.0.0` qiling.

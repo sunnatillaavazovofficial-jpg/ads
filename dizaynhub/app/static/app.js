@@ -203,7 +203,11 @@
     if (sendForm) {
       const ta = $("textarea", sendForm);
       ta.addEventListener("keydown", (e) => {
-        if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendForm.requestSubmit(); }
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          if (sendForm.requestSubmit) sendForm.requestSubmit();
+          else sendForm.dispatchEvent(new Event("submit", { cancelable: true }));
+        }
       });
       sendForm.addEventListener("submit", async (e) => {
         e.preventDefault();
