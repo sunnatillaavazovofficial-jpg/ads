@@ -1,0 +1,28 @@
+{% for m in msgs %}
+{% if m.service %}
+<div class="msg service">{{ m.text or 'ℹ️ Xizmat xabari' }}</div>
+{% else %}
+<div class="msg {{ 'out' if m.out else '' }}" data-id="{{ m.id }}">
+  {% if not m.out and chat.kind in ('group', 'channel') and m.sender %}<div class="sender">{{ m.sender }}</div>{% endif %}
+  {% if m.forwarded %}<div class="fwd">↪ Forward: {{ m.forwarded }}</div>{% endif %}
+  {% set murl = '/telegram/media/' ~ chat.id ~ '/' ~ m.id %}
+  {% if m.kind == 'photo' %}
+    <a href="{{ murl }}" data-lightbox="{{ murl }}"><img class="media" src="{{ murl }}" alt="rasm" loading="lazy"></a>
+  {% elif m.kind == 'sticker' %}
+    <img class="media" src="{{ murl }}?thumb=1" alt="stiker" loading="lazy" style="max-height:140px" onerror="this.replaceWith('Stiker')">
+  {% elif m.kind in ('video', 'video_note') %}
+    <video controls preload="none" src="{{ murl }}"></video>
+  {% elif m.kind in ('voice', 'audio') %}
+    <audio controls preload="none" src="{{ murl }}"></audio>
+  {% elif m.kind == 'document' %}
+    <div class="doc">📎 <span class="grow" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis">{{ m.file_name or 'fayl' }}</span>
+      <span class="muted small nowrap">{{ (m.file_size / 1048576)|round(1) }} MB</span>
+      <a class="btn btn-sm" href="{{ murl }}?dl=1">⬇</a></div>
+  {% elif m.kind %}
+    <div class="muted small">{{ m.label }}</div>
+  {% endif %}
+  {% if m.text %}<div class="pre">{{ m.text }}</div>{% endif %}
+  <div class="time">{{ m.date.strftime('%d.%m %H:%M') if m.date else '' }}</div>
+</div>
+{% endif %}
+{% endfor %}

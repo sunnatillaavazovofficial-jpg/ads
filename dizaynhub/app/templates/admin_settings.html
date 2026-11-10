@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Sozlamalar{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>⚙️ Sozlamalar</h1></div></div>
+
+<div class="grid-2">
+  <div class="card">
+    <h2>🔑 Ro'yxatdan o'tish kalitlari</h2>
+    <p class="muted small">Xodim ro'yxatdan o'tayotganda kalit kiritadi — kalitga qarab uning roli aniqlanadi. Kalitni o'zgartirsangiz, eski kalit bilan yangi odam ro'yxatdan o'ta olmaydi (mavjud foydalanuvchilarga ta'sir qilmaydi).</p>
+    <form method="post" action="/admin/settings/keys">
+      <div class="field"><label>Menejer kaliti</label><input type="text" name="key_manager" value="{{ keys.manager }}" required></div>
+      <div class="field"><label>Dizayner kaliti</label><input type="text" name="key_designer" value="{{ keys.designer }}" required></div>
+      <div class="field"><label>Bosh dizayner kaliti</label><input type="text" name="key_chief" value="{{ keys.chief }}" required></div>
+      <div class="field"><label>Admin kaliti</label><input type="text" name="key_admin" value="{{ keys.admin }}" required>
+        <div class="hint">Bu kalitni hech kimga bermang.</div></div>
+      <button class="btn btn-primary" type="submit">Saqlash</button>
+    </form>
+  </div>
+
+  <div class="card" id="turlar">
+    <h2>🏷 Ish turlari</h2>
+    <form method="post" action="/admin/settings/types" class="row" style="margin-bottom:12px">
+      <div><input type="text" name="name" placeholder="Yangi tur nomi" required></div>
+      <div class="flex-0"><button class="btn btn-primary" type="submit">Qo'shish</button></div>
+    </form>
+    <ul class="files">
+      {% for t in types %}
+      <li><span class="fname">{{ t.name }}</span>
+        <form class="inline" method="post" action="/admin/settings/types/{{ t.id }}/delete" data-confirm="«{{ t.name }}» o'chirilsinmi?">
+          <button class="btn btn-sm btn-danger" type="submit">✕</button>
+        </form>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+</div>
+{% endblock %}

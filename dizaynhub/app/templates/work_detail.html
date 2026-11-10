@@ -1,0 +1,236 @@
+{% extends "base.html" %}
+{% from "_macros.html" import status, none_or %}
+{% block title %}#{{ work.id }} {{ work.title }}{% endblock %}
+
+{% macro files_block(kind, is_none=False) %}
+  {% set items = work.files_of(kind) %}
+  {% if items %}
+    {% set imgs = items|selectattr('is_image')|list %}
+    {% if imgs %}
+      <div class="gallery" style="margin-bottom:8px">
+        {% for f in imgs %}<a href="/files/{{ f.id }}" data-lightbox="{{ '/files/' ~ f.id if f.mime.startswith('image/') and not f.original_name.lower().endswith(('.psd', '.tif', '.tiff')) else '/files/' ~ f.id ~ '?thumb=1' }}" title="{{ f.original_name }}"><img src="/files/{{ f.id }}?thumb=1" alt="{{ f.original_name }}" loading="lazy"></a>{% endfor %}
+      </div>
+    {% endif %}
+    <ul class="files">
+      {% for f in items %}
+      <li>
+        <span>{{ '🖼' if f.is_image else '📄' }}</span>
+        <span class="fname" title="{{ f.original_name }}">{{ f.original_name }}</span>
+        <span class="muted small nowrap">{{ f.size_text }}</span>
+        <a class="btn btn-sm" href="/files/{{ f.id }}?dl=1">⬇</a>
+        {% if user.is_admin or (kind == 'result' and (f.uploaded_by_id == user.id or user.is_chief)) %}
+        <form class="inline" method="post" action="/works/{{ work.id }}/files/{{ f.id }}/delete" data-confirm="Faylni o'chirasizmi?">
+          <button class="btn btn-sm btn-danger" type="submit">✕</button>
+        </form>
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+  {% elif is_none %}<span class="none">Yo'q</span>
+  {% else %}<span class="muted">—</span>{% endif %}
+{% endmacro %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <div class="muted small"><a href="/works">Ishlar</a> / #{{ work.id }}</div>
+    <h1>{{ work.title }}</h1>
+    <div>{{ status(work) }} <span class="muted small">· {{ work.work_type }} · {{ work.created_at|dt }}{% if work.source == 'bot' %} · 🤖 bot orqali{% endif %}</span></div>
+  </div>
+  <div class="actions">
+    {% if can_edit %}<a class="btn" href="/works/{{ work.id }}/edit">✏️ Tahrirlash</a>{% endif %}
+    {% if user.is_admin %}
+    <form class="inline" method="post" action="/works/{{ work.id }}/delete" data-confirm="Ish va uning barcha fayllari butunlay o'chiriladi. Davom etasizmi?">
+      <button class="btn btn-danger" type="submit">🗑 O'chirish</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+
+<div class="cols">
+  <div>
+    <div class="card">
+      <h2>Ma'lumotlar</h2>
+      <dl class="kv">
+        <dt>1. Ish nomi</dt><dd><b>{{ work.title }}</b></dd>
+        <dt>2. Ish turi</dt><dd>{{ work.work_type }}</dd>
+        <dt>3. Qisqa ta'rif</dt><dd>{{ none_or(work.short_desc, work.short_desc_none) }}</dd>
+        <dt>4. O'lchami</dt><dd>{% if work.size_none %}<span class="none">Yo'q</span>{% else %}{{ work.size_text }}{% if work.area_m2 %} <span class="muted small">(≈ {{ work.area_m2|num }} m²)</span>{% endif %}{% endif %}</dd>
+        <dt>5. Ish rasmi</dt><dd>{{ files_block('image', work.image_none) }}</dd>
+        <dt>6. Qo'shimcha</dt><dd>{{ none_or(work.extra_info, work.extra_info_none) }}</dd>
+        <dt>7. Logo</dt><dd>{{ files_block('logo', work.logo_none) }}</dd>
+        <dt>8. Maxsus matn</dt><dd>{{ none_or(work.special_text, work.special_text_none) }}</dd>
+        <dt>9. Fayllar</dt><dd>{{ files_block('file', work.files_none) }}</dd>
+        {% if work.client_name or work.client_phone %}
+        <dt>Mijoz</dt><dd>{{ work.client_name }} {% if work.client_phone %}<a href="tel:{{ work.client_phone }}">{{ work.client_phone }}</a>{% endif %}</dd>
+        {% endif %}
+        {% if work.deadline %}<dt>Muddat</dt><dd><b>{{ work.deadline|date }}</b></dd>{% endif %}
+      </dl>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2>🏁 Tayyor ish</h2></div>
+      {{ files_block('result') }}
+      {% if can_result %}
+      <hr>
+      <form method="post" action="/works/{{ work.id }}/result" enctype="multipart/form-data">
+        <div class="field"><input type="file" name="result_files" multiple required></div>
+        {% if 'done' in actions %}
+        <div class="field"><label style="font-weight:400"><input type="checkbox" name="mark_done" value="1" checked> Yuklagandan keyin «Tayyor» deb belgilash</label></div>
+        {% endif %}
+        <button class="btn btn-primary" type="submit">⬆ Yuklash</button>
+      </form>
+      {% endif %}
+    </div>
+
+    {% if show_acc %}
+    <div class="card" id="hisob">
+      <div class="card-head"><h2>💰 Hisob</h2><span class="muted small">Narxlar dizaynerlarga ko'rinmaydi</span></div>
+      <div class="table-wrap">
+      <table class="table">
+        <thead><tr><th>Material / xizmat</th><th class="num">Miqdor</th><th class="num">Tannarx (1)</th><th class="num">Narx (1)</th><th class="num">Tannarx</th><th class="num">Narx</th><th></th></tr></thead>
+        <tbody>
+        {% for e in work.expenses %}
+          <tr>
+            <td>{{ e.name }}</td>
+            <td class="num">{{ e.qty|num }} {{ e.unit }}</td>
+            <td class="num">{{ e.cost_price|money }}</td>
+            <td class="num">{{ e.sell_price|money }}</td>
+            <td class="num">{{ e.cost_total|money }}</td>
+            <td class="num">{{ e.price_total|money }}</td>
+            <td class="right">
+              <form class="inline" method="post" action="/works/{{ work.id }}/expenses/{{ e.id }}/delete" data-confirm="Qatorni o'chirasizmi?">
+                <button class="btn-link danger" type="submit">✕</button>
+              </form>
+            </td>
+          </tr>
+        {% else %}
+          <tr><td colspan="7" class="muted">Hali material yozilmagan.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      </div>
+      <div class="totals">
+        <div><span class="muted small">Tannarx (sebestoimost)</span><b>{{ work.total_cost|money }} so'm</b></div>
+        <div><span class="muted small">Umumiy narx</span><b>{{ work.total_price|money }} so'm</b></div>
+        <div><span class="muted small">Foyda</span><b class="{{ 'profit-pos' if work.profit >= 0 else 'profit-neg' }}">{{ work.profit|money }} so'm</b></div>
+      </div>
+      <hr>
+      <h3>Material yoki xizmat qo'shish</h3>
+      <form id="expense-form" method="post" action="/works/{{ work.id }}/expenses" data-area="{{ work.area_m2 }}">
+        <div class="row">
+          <div style="flex:2;min-width:200px"><label class="small muted">Material</label>
+            <select name="material_id">
+              <option value="">✏️ Boshqa (qo'lda yozish)</option>
+              {% for m in materials %}<option value="{{ m.id }}" data-name="{{ m.name }}" data-unit="{{ m.unit }}" data-cost="{{ m.cost_price }}" data-sell="{{ m.sell_price }}">{{ m.name }} — {{ m.sell_price|money }}/{{ m.unit }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="custom-name" style="flex:2;min-width:160px"><label class="small muted">Nomi</label><input type="text" name="name" placeholder="Masalan: Yetkazib berish"></div>
+        </div>
+        <div class="row" style="margin-top:10px">
+          <div><label class="small muted">Miqdor</label><input type="text" inputmode="decimal" name="qty" required placeholder="{{ work.area_m2|num if work.area_m2 else '1' }}"></div>
+          <div><label class="small muted">Birlik</label><input type="text" name="unit" placeholder="m², dona..."></div>
+          <div><label class="small muted">Tannarx (1 birlik)</label><input type="text" inputmode="decimal" name="cost_price" placeholder="0"></div>
+          <div><label class="small muted">Sotish narxi (1 birlik)</label><input type="text" inputmode="decimal" name="sell_price" placeholder="0"></div>
+          <div class="flex-0"><button class="btn btn-primary" type="submit">Qo'shish</button></div>
+        </div>
+        {% if work.area_m2 %}<p class="hint">Ish maydoni ≈ {{ work.area_m2|num }} m² — m² dagi material tanlansa miqdor avtomatik qo'yiladi.</p>{% endif %}
+      </form>
+    </div>
+    {% endif %}
+
+    <div class="card" id="tarix">
+      <h2>🕘 Tarix va izohlar</h2>
+      <ul class="timeline">
+        {% for ev in work.events|reverse %}
+        <li>
+          <span class="who">{{ ev.user.full_name if ev.user else 'Tizim' }}</span>
+          <span class="when">· {{ ev.created_at|dt }}</span>
+          {% if ev.kind == 'comment' %}<div class="comment pre">{{ ev.text }}</div>
+          {% else %}<div class="small pre">{{ ev.text }}</div>{% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      <form method="post" action="/works/{{ work.id }}/comment" style="margin-top:12px">
+        <div class="field"><textarea name="text" placeholder="Izoh yozing..." required></textarea></div>
+        <button class="btn" type="submit">💬 Izoh qoldirish</button>
+      </form>
+    </div>
+  </div>
+
+  <div>
+    <div class="card">
+      <h2>Holat</h2>
+      <dl class="kv" style="grid-template-columns:120px 1fr">
+        <dt>Holat</dt><dd>{{ status(work) }}</dd>
+        <dt>Menejer</dt><dd>{{ work.manager.full_name if work.manager else '—' }}</dd>
+        <dt>Qabul qildi</dt><dd>{{ work.chief.full_name if work.chief else '—' }}{% if work.accepted_at %}<div class="muted small">{{ work.accepted_at|dt }}</div>{% endif %}</dd>
+        <dt>Dizayner</dt><dd>{{ work.designer.full_name if work.designer else '—' }}</dd>
+        {% if work.done_at %}<dt>Tayyor bo'ldi</dt><dd>{{ work.done_at|dt }}</dd>{% endif %}
+        {% if work.deadline %}<dt>Muddat</dt><dd>{{ work.deadline|date }}</dd>{% endif %}
+      </dl>
+      {% if actions %}
+      <hr>
+      <div class="actions-box">
+        {% for a in actions %}
+          {% if a == 'accept' %}
+          <form method="post" action="/works/{{ work.id }}/action">
+            <input type="hidden" name="action" value="accept">
+            <label class="small">Kimga biriktirilsin?</label>
+            <select name="designer_id" required>
+              {% for d in designers %}<option value="{{ d.id }}" {% if d.id == user.id %}selected{% endif %}>{{ d.full_name }}{% if d.id == user.id %} (o'zim){% endif %}</option>{% endfor %}
+              {% if user.is_admin and user not in designers %}<option value="{{ user.id }}">{{ user.full_name }} (o'zim)</option>{% endif %}
+            </select>
+            <button class="btn btn-ok" type="submit">✅ Qabul qilish</button>
+          </form>
+          {% elif a == 'done' %}
+            {% if work.files_of('result') %}
+            <form method="post" action="/works/{{ work.id }}/action"><input type="hidden" name="action" value="done">
+              <button class="btn btn-ok" type="submit" style="width:100%">🏁 Tayyor</button></form>
+            {% else %}<p class="hint" style="margin:0">«Tayyor» deb belgilash uchun avval tayyor ish faylini yuklang.</p>{% endif %}
+          {% elif a in ('reopen', 'cancel') %}
+          <form method="post" action="/works/{{ work.id }}/action" {% if a == 'cancel' %}data-confirm="Ishni bekor qilasizmi?"{% endif %}>
+            <input type="hidden" name="action" value="{{ a }}">
+            <input type="text" name="comment" placeholder="Sabab (ixtiyoriy)">
+            <button class="btn {{ 'btn-danger' if a == 'cancel' else '' }}" type="submit">{{ labels[a] }}</button>
+          </form>
+          {% else %}
+          <form method="post" action="/works/{{ work.id }}/action"><input type="hidden" name="action" value="{{ a }}">
+            <button class="btn {{ 'btn-primary' if a in ('start', 'deliver') else '' }}" type="submit" style="width:100%">{{ labels[a] }}</button></form>
+          {% endif %}
+        {% endfor %}
+      </div>
+      {% endif %}
+      {% if user.can_accept_work and work.status in ('accepted', 'in_progress') %}
+      <hr>
+      <form method="post" action="/works/{{ work.id }}/reassign" class="row">
+        <div><label class="small">Dizaynerni almashtirish</label>
+          <select name="designer_id">{% for d in designers %}<option value="{{ d.id }}" {% if d.id == work.designer_id %}selected{% endif %}>{{ d.full_name }}</option>{% endfor %}</select>
+        </div>
+        <div class="flex-0"><button class="btn" type="submit">OK</button></div>
+      </form>
+      {% endif %}
+    </div>
+
+    {% if show_chat %}
+    <div class="card">
+      <h2>💬 Mijoz chati</h2>
+      <p style="margin:0 0 10px"><b>{{ work.tg_chat.title }}</b>{% if work.tg_chat.username %} <span class="muted">@{{ work.tg_chat.username }}</span>{% endif %}</p>
+      {% if work.tg_chat.last_text %}<p class="muted small">{{ work.tg_chat.last_text[:160] }}</p>{% endif %}
+      <a class="btn" href="/telegram/chat/{{ work.tg_chat_id }}">Chatni ochish →</a>
+    </div>
+    {% endif %}
+
+    {% if show_acc and work.expenses %}
+    <div class="card">
+      <h2>Qisqacha hisob</h2>
+      <dl class="kv" style="grid-template-columns:120px 1fr">
+        <dt>Tannarx</dt><dd>{{ work.total_cost|money }} so'm</dd>
+        <dt>Narx</dt><dd><b>{{ work.total_price|money }} so'm</b></dd>
+        <dt>Foyda</dt><dd class="{{ 'profit-pos' if work.profit >= 0 else 'profit-neg' }}">{{ work.profit|money }} so'm</dd>
+      </dl>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

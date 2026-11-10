@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Telegram chatlar{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>💬 Telegram chatlar</h1>
+    <div class="muted">Tanlab olingan chatlar. Yangi xabarlar avtomatik ko'rinadi.</div>
+  </div>
+  {% if user.is_admin %}<div class="actions"><a class="btn btn-primary" href="/telegram/accounts">📱 Akkauntlar va chat tanlash</a></div>{% endif %}
+</div>
+
+{% if not enabled %}
+<div class="alert alert-warn">Telegram ulanmagan: <code>.env</code> faylida <b>TG_API_ID</b> va <b>TG_API_HASH</b> ni kiriting va dasturni qayta ishga tushiring (README.md ga qarang).</div>
+{% endif %}
+
+<div class="card">
+  {% if chats %}
+  <div class="filters" style="margin-bottom:8px"><input type="search" id="chat-filter" placeholder="Chatni qidirish..."></div>
+  {% endif %}
+  <div id="tg-chat-list">{% include "_tg_chat_list.html" %}</div>
+</div>
+{% endblock %}

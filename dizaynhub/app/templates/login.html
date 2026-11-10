@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Kirish{% endblock %}
+{% block public %}
+<div class="auth-wrap">
+  <div class="auth">
+    <div class="brand"><span class="dot"></span>{{ SITE_NAME }}</div>
+    <div class="card">
+      <h2>Kirish</h2>
+      {% for kind, msg in flashes %}<div class="alert alert-{{ kind }}">{{ msg }}</div>{% endfor %}
+      {% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
+      <form method="post" action="/login">
+        <input type="hidden" name="next" value="{{ next }}">
+        <div class="field">
+          <label for="login">Login (Ism Familiya)</label>
+          <input id="login" type="text" name="login" value="{{ login }}" placeholder="Masalan: Ali Valiyev" required autofocus autocomplete="username">
+        </div>
+        <div class="field">
+          <label for="password">Parol</label>
+          <input id="password" type="password" name="password" required autocomplete="current-password">
+        </div>
+        <button class="btn btn-primary" style="width:100%" type="submit">Kirish</button>
+      </form>
+      <hr>
+      <p class="muted small" style="margin:0">Akkauntingiz yo'qmi? <a href="/register">Ro'yxatdan o'tish</a></p>
+    </div>
+  </div>
+</div>
+{% endblock %}

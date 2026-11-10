@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Chatlarni tanlash{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <div class="muted small"><a href="/telegram/accounts">Akkauntlar</a> / {{ acc.display_name }}</div>
+    <h1>☑️ Kerakli chatlarni tanlang</h1>
+    <div class="muted">Belgilangan chatlar «Telegram chatlar» bo'limida ko'rinib turadi.</div>
+  </div>
+</div>
+
+<form method="post" action="/telegram/accounts/{{ acc.id }}/dialogs" class="card">
+  <div class="filters">
+    <input type="search" id="dialog-filter" placeholder="Ism, username yoki xabar bo'yicha qidirish...">
+    <select id="dialog-kind">
+      <option value="">Hammasi ({{ items|length }})</option>
+      <option value="selected">Faqat tanlanganlar</option>
+      <option value="user">Odamlar</option>
+      <option value="group">Guruhlar</option>
+      <option value="channel">Kanallar</option>
+      <option value="bot">Botlar</option>
+    </select>
+  </div>
+  <div class="list dialogs">
+    {% for d in items %}
+    <label class="list-item" data-kind="{{ d.kind }}" style="font-weight:400;margin:0">
+      <input type="hidden" name="shown" value="{{ d.peer_id }}">
+      <input type="hidden" name="title_{{ d.peer_id }}" value="{{ d.title }}">
+      <input type="hidden" name="username_{{ d.peer_id }}" value="{{ d.username }}">
+      <input type="hidden" name="kind_{{ d.peer_id }}" value="{{ d.kind }}">
+      <input type="hidden" name="last_{{ d.peer_id }}" value="{{ d.last[:300] }}">
+      <input type="checkbox" name="peer" value="{{ d.peer_id }}" {% if d.peer_id in tracked %}checked{% endif %}>
+      <div class="grow">
+        <b>{{ d.title }}{% if d.username %} <span class="muted small" style="font-weight:400">@{{ d.username }}</span>{% endif %}</b>
+        <div class="muted small" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ d.last or '—' }}</div>
+      </div>
+      <div class="right">
+        <span class="badge">{{ {'user': '👤 odam', 'group': '👥 guruh', 'channel': '📢 kanal', 'bot': '🤖 bot'}[d.kind] }}</span>
+        {% if d.archived %}<div class="muted small">arxiv</div>{% endif %}
+        <div class="muted small nowrap">{{ d.date|dt if d.date else '' }}</div>
+      </div>
+    </label>
+    {% endfor %}
+  </div>
+  <div class="sticky-bar">
+    <button class="btn btn-primary" type="submit">💾 Saqlash</button>
+    <span class="muted">Tanlangan: <b id="selected-count">0</b></span>
+  </div>
+</form>
+{% endblock %}

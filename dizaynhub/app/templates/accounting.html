@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% from "_macros.html" import status %}
+{% block title %}Hisob{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>💰 Hisob</h1>
+    <div class="muted">{{ d_from|date }} — {{ d_to|date }}{% if user.is_manager %} · faqat sizning ishlaringiz{% endif %}</div>
+  </div>
+  <div class="actions"><a class="btn" href="/materials">📦 Materiallar katalogi</a></div>
+</div>
+
+<form class="filters" method="get" action="/accounting">
+  <label class="small muted" style="margin:0">Dan</label>
+  <input type="date" name="date_from" value="{{ d_from.strftime('%Y-%m-%d') }}">
+  <label class="small muted" style="margin:0">Gacha</label>
+  <input type="date" name="date_to" value="{{ d_to.strftime('%Y-%m-%d') }}">
+  {% if managers %}
+  <select name="manager">
+    <option value="">Barcha menejerlar</option>
+    {% for m in managers %}<option value="{{ m.id }}" {% if manager == m.id|string %}selected{% endif %}>{{ m.full_name }}</option>{% endfor %}
+  </select>
+  {% endif %}
+  <label class="small" style="margin:0;font-weight:400"><input type="checkbox" name="with_cancelled" value="1" {% if with_cancelled %}checked{% endif %}> bekor qilinganlar ham</label>
+  <button class="btn" type="submit">Ko'rsatish</button>
+</form>
+
+<div class="stats">
+  <div class="stat"><div class="v">{{ totals.count }}</div><div class="l">Ishlar soni</div></div>
+  <div class="stat"><div class="v">{{ totals.cost|money }}</div><div class="l">Jami tannarx (so'm)</div></div>
+  <div class="stat"><div class="v">{{ totals.price|money }}</div><div class="l">Jami narx (so'm)</div></div>
+  <div class="stat"><div class="v {{ 'profit-pos' if totals.profit >= 0 else 'profit-neg' }}">{{ totals.profit|money }}</div><div class="l">Foyda (so'm)</div></div>
+</div>
+
+<div class="grid-2">
+  <div class="card">
+    <h2>📦 Material sarfi</h2>
+    <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th>Material / xizmat</th><th class="num">Sarf</th><th class="num">Tannarx</th><th class="num">Narx</th></tr></thead>
+      <tbody>
+      {% for (name, unit), r in materials %}
+        <tr><td>{{ name }}</td><td class="num">{{ r.qty|num }} {{ unit }}</td><td class="num">{{ r.cost|money }}</td><td class="num">{{ r.price|money }}</td></tr>
+      {% else %}
+        <tr><td colspan="4" class="muted">Bu davrda material yozilmagan.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </div>
+  <div class="card">
+    <h2>👤 Menejerlar bo'yicha</h2>
+    <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th>Menejer</th><th class="num">Ishlar</th><th class="num">Tannarx</th><th class="num">Narx</th><th class="num">Foyda</th></tr></thead>
+      <tbody>
+      {% for name, r in by_manager %}
+        <tr><td>{{ name }}</td><td class="num">{{ r.count }}</td><td class="num">{{ r.cost|money }}</td><td class="num">{{ r.price|money }}</td><td class="num">{{ (r.price - r.cost)|money }}</td></tr>
+      {% else %}
+        <tr><td colspan="5" class="muted">Ma'lumot yo'q.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <h2>🗂 Ishlar bo'yicha</h2>
+  <div class="table-wrap">
+  <table class="table">
+    <thead><tr><th>#</th><th>Ish</th><th>Menejer</th><th>Holat</th><th class="num">Tannarx</th><th class="num">Narx</th><th class="num">Foyda</th></tr></thead>
+    <tbody>
+    {% for w in works %}
+      <tr>
+        <td><a href="/works/{{ w.id }}#hisob">#{{ w.id }}</a></td>
+        <td><a href="/works/{{ w.id }}#hisob">{{ w.title }}</a><div class="muted small">{{ w.work_type }} · {{ w.created_at|date }}</div></td>
+        <td>{{ w.manager.full_name if w.manager else '—' }}</td>
+        <td>{{ status(w) }}</td>
+        <td class="num">{{ w.total_cost|money }}</td>
+        <td class="num">{{ w.total_price|money }}</td>
+        <td class="num {{ 'profit-pos' if w.profit >= 0 else 'profit-neg' }}">{{ w.profit|money }}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="7" class="muted">Bu davrda ish yo'q.</td></tr>
+    {% endfor %}
+    </tbody>
+    {% if works %}
+    <tfoot><tr><td colspan="4">Jami</td><td class="num">{{ totals.cost|money }}</td><td class="num">{{ totals.price|money }}</td><td class="num">{{ totals.profit|money }}</td></tr></tfoot>
+    {% endif %}
+  </table>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Profil{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>👤 {{ user.full_name }}</h1>
+    <div class="muted">{{ user.role_name }} · Login: «{{ user.full_name }}»</div>
+  </div>
+</div>
+
+<div class="grid-2">
+  <div class="card">
+    <h2>🤖 Telegram bot</h2>
+    {% if not bot_username %}
+      <p class="muted">Bot hozircha ulanmagan (admin <code>.env</code> faylida BOT_TOKEN ni kiritishi kerak).</p>
+    {% elif user.tg_user_id %}
+      <p>✅ Telegram akkauntingiz <a href="https://t.me/{{ bot_username }}" target="_blank" rel="noopener">@{{ bot_username }}</a> botiga bog'langan.</p>
+      <p class="muted small">Bot orqali bildirishnomalar olasiz{% if user.can_create_work %} va yangi ish joylay olasiz{% endif %}.</p>
+      <form method="post" action="/profile/tg-unlink" data-confirm="Bog'lanishni o'chirasizmi?"><button class="btn btn-danger" type="submit">Bog'lanishni o'chirish</button></form>
+    {% else %}
+      <p>Bot orqali bildirishnomalar olish{% if user.can_create_work %} va yangi ish joylash{% endif %} uchun Telegramingizni bog'lang.</p>
+      {% if bot_link %}
+        <p><a class="btn btn-primary" href="{{ bot_link }}" target="_blank" rel="noopener">📲 Botni ochish va bog'lash</a></p>
+        <p class="muted small">Yoki <b>@{{ bot_username }}</b> botiga shu kodni yuboring: <span class="code">{{ user.tg_link_code }}</span></p>
+      {% else %}
+        <form method="post" action="/profile/tg-link"><button class="btn btn-primary" type="submit">Bog'lash kodini olish</button></form>
+      {% endif %}
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h2>🔒 Parolni o'zgartirish</h2>
+    <form method="post" action="/profile/password">
+      <div class="field"><label>Joriy parol</label><input type="password" name="old" required autocomplete="current-password"></div>
+      <div class="field"><label>Yangi parol</label><input type="password" name="new" minlength="6" required autocomplete="new-password"></div>
+      <div class="field"><label>Yangi parolni takrorlang</label><input type="password" name="new2" minlength="6" required autocomplete="new-password"></div>
+      <button class="btn" type="submit">Saqlash</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

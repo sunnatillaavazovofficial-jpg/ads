@@ -1,0 +1,31 @@
+{% macro status(w) -%}
+<span class="badge st-{{ w.status }}">{{ w.status_name }}</span>
+{%- endmacro %}
+
+{% macro work_card(w) -%}
+<a class="wcard" href="/works/{{ w.id }}">
+  {% set c = w.cover %}
+  <div class="thumb" {% if c %}style="background-image:url('/files/{{ c.id }}?thumb=1')"{% endif %}>{% if not c %}🎨{% endif %}</div>
+  <div class="body">
+    <div class="title" title="{{ w.title }}">#{{ w.id }} · {{ w.title }}</div>
+    <div class="meta"><span>{{ w.work_type }}</span>{{ status(w) }}</div>
+    <div class="meta"><span>{{ w.size_text }}</span><span>{{ w.created_at|date }}</span></div>
+  </div>
+</a>
+{%- endmacro %}
+
+{% macro work_row(w) -%}
+<a class="list-item" href="/works/{{ w.id }}">
+  {% set c = w.cover %}
+  <div class="mini" {% if c %}style="background-image:url('/files/{{ c.id }}?thumb=1')"{% endif %}>{% if not c %}🎨{% endif %}</div>
+  <div class="grow">
+    <b>#{{ w.id }} · {{ w.title }}</b>
+    <span class="muted small">{{ w.work_type }} · {{ w.size_text }} · {{ w.manager.full_name if w.manager else '—' }}</span>
+  </div>
+  {{ status(w) }}
+</a>
+{%- endmacro %}
+
+{% macro none_or(value, is_none) -%}
+{% if is_none %}<span class="none">Yo'q</span>{% elif value %}<span class="pre">{{ value }}</span>{% else %}—{% endif %}
+{%- endmacro %}

@@ -1,0 +1,21 @@
+{% if chats %}
+<div class="list chat-list">
+  {% for c in chats %}
+  {% set acc = accounts.get(c.account_id) %}
+  <a class="list-item" href="/telegram/chat/{{ c.id }}">
+    <div class="ava">{{ (c.title or '?')[:1]|upper }}</div>
+    <div class="grow">
+      <b>{{ c.title }}{% if c.username %} <span class="muted small" style="font-weight:400">@{{ c.username }}</span>{% endif %}</b>
+      <div class="last">{{ c.last_text or '—' }}</div>
+      <div class="muted small">📱 {{ acc.display_name if acc else '?' }}{% if acc and status.get(acc.id) and status.get(acc.id) != 'online' %} · ⚠️ {{ status.get(acc.id) }}{% endif %}{% if c.note %} · 📝 {{ c.note }}{% endif %}</div>
+    </div>
+    <div class="right" style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+      <span class="muted small nowrap">{{ c.last_at|dt if c.last_at else '' }}</span>
+      {% if c.unread %}<span class="unread">{{ c.unread }}</span>{% endif %}
+    </div>
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<p class="muted" style="margin:0">Hali chat tanlanmagan.{% if user and user.is_admin %} <a href="/telegram/accounts">Akkaunt ulang va kerakli chatlarni tanlang →</a>{% endif %}</p>
+{% endif %}

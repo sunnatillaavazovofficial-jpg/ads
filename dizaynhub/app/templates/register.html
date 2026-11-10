@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Ro'yxatdan o'tish{% endblock %}
+{% macro err(name) %}{% if errors.get(name) %}<div class="err">{{ errors[name] }}</div>{% endif %}{% endmacro %}
+{% block public %}
+<div class="auth-wrap">
+  <div class="auth">
+    <div class="brand"><span class="dot"></span>{{ SITE_NAME }}</div>
+    <div class="card">
+      <h2>Ro'yxatdan o'tish</h2>
+      <p class="muted small">Kalitni rahbaringizdan oling: menejerlar va dizaynerlar uchun kalitlar alohida.</p>
+      <form method="post" action="/register" autocomplete="off">
+        <div class="field {% if errors.key %}has-err{% endif %}">
+          <label for="key">Kalit <span class="req">*</span></label>
+          <input id="key" type="text" name="key" value="{{ form.key or '' }}" required autofocus>
+          {{ err('key') }}
+        </div>
+        <div class="row">
+          <div class="field {% if errors.first_name %}has-err{% endif %}">
+            <label for="first_name">Ism <span class="req">*</span></label>
+            <input id="first_name" type="text" name="first_name" value="{{ form.first_name or '' }}" required>
+          </div>
+          <div class="field {% if errors.last_name %}has-err{% endif %}">
+            <label for="last_name">Familiya <span class="req">*</span></label>
+            <input id="last_name" type="text" name="last_name" value="{{ form.last_name or '' }}" required>
+          </div>
+        </div>
+        {{ err('first_name') }}{{ err('last_name') }}
+        <p class="hint" style="margin-top:-8px">«Ism Familiya» keyinchalik login sifatida ishlatiladi.</p>
+        <div class="field {% if errors.password %}has-err{% endif %}">
+          <label for="password">Parol <span class="req">*</span></label>
+          <input id="password" type="password" name="password" required minlength="6" autocomplete="new-password">
+          {{ err('password') }}
+        </div>
+        <div class="field {% if errors.password2 %}has-err{% endif %}">
+          <label for="password2">Parolni takrorlang <span class="req">*</span></label>
+          <input id="password2" type="password" name="password2" required minlength="6" autocomplete="new-password">
+          {{ err('password2') }}
+        </div>
+        <button class="btn btn-primary" style="width:100%" type="submit">Ro'yxatdan o'tish</button>
+      </form>
+      <hr>
+      <p class="muted small" style="margin:0">Akkauntingiz bormi? <a href="/login">Kirish</a></p>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Telegram akkauntlar{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>📱 Telegram akkauntlar</h1>
+    <div class="muted">Akkaunt ulang → «Chatlarni tanlash» → kerakli odamlarning chatlarini belgilang.</div>
+  </div>
+  <div class="actions"><a class="btn" href="/telegram">💬 Chatlar</a></div>
+</div>
+
+{% if not enabled %}
+<div class="alert alert-warn">
+  Telegram o'chirilgan. <code>.env</code> fayliga <b>TG_API_ID</b> va <b>TG_API_HASH</b> yozing
+  (<a href="https://my.telegram.org/apps" target="_blank" rel="noopener">my.telegram.org/apps</a> dan olinadi) va dasturni qayta ishga tushiring.
+</div>
+{% endif %}
+
+<div class="cols">
+  <div class="card">
+    <h2>Ulangan akkauntlar ({{ accounts|length }})</h2>
+    {% if accounts %}
+    <div class="list">
+      {% for a in accounts %}
+      <div class="list-item" style="flex-wrap:wrap">
+        <div class="ava" style="width:42px;height:42px;border-radius:50%;background:var(--accent-2);color:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:700">{{ (a.display_name or '?')[:1]|upper }}</div>
+        <div class="grow">
+          <b>{{ a.display_name or a.phone }}{% if a.username %} <span class="muted small" style="font-weight:400">@{{ a.username }}</span>{% endif %}</b>
+          <div class="muted small">{{ a.phone }} · tanlangan chatlar: {{ counts[a.id] }} ·
+            {% set st = status.get(a.id) %}
+            {% if st == 'online' %}<span class="profit-pos">● ulangan</span>{% else %}<span class="profit-neg">● {{ st or 'ulanmagan' }}</span>{% endif %}
+          </div>
+          <form method="post" action="/telegram/accounts/{{ a.id }}/owner" class="row" style="margin-top:8px;flex-wrap:nowrap">
+            <div><select name="owner_user_id">
+              <option value="">Faqat admin ko'radi</option>
+              {% for m in managers %}<option value="{{ m.id }}" {% if a.owner_user_id == m.id %}selected{% endif %}>Ham ko'radi: {{ m.full_name }}</option>{% endfor %}
+            </select></div>
+            <div class="flex-0"><button class="btn btn-sm" type="submit">💾</button></div>
+          </form>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <a class="btn btn-primary btn-sm" href="/telegram/accounts/{{ a.id }}/dialogs">☑️ Chatlarni tanlash</a>
+          <form method="post" action="/telegram/accounts/{{ a.id }}/delete" class="inline" data-confirm="Akkaunt uziladi (Telegramdagi sessiya ham yopiladi) va tanlangan chatlar o'chiriladi. Davom etasizmi?">
+            <button class="btn btn-sm btn-danger" type="submit">Uzish</button>
+          </form>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+      <p class="muted">Hali akkaunt ulanmagan.</p>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h2>➕ Akkaunt ulash</h2>
+    <form method="post" action="/telegram/accounts/add">
+      <div class="field">
+        <label>Telefon raqam</label>
+        <input type="tel" name="phone" placeholder="+998 90 123 45 67" required {% if not enabled %}disabled{% endif %}>
+        <div class="hint">Telegram shu akkauntga kod yuboradi (Telegram ilovasining o'ziga keladi).</div>
+      </div>
+      <button class="btn btn-primary" type="submit" {% if not enabled %}disabled{% endif %}>Kod yuborish</button>
+    </form>
+    <hr>
+    <p class="muted small" style="margin:0">
+      🔐 Sessiyalar faqat sizning kompyuteringizda (<code>data/tg_sessions</code>) saqlanadi.
+      Saytda chatni o'qish xabarlarni Telegramda «o'qilgan» qilmaydi.
+      Akkauntni Telegram → Sozlamalar → Qurilmalar bo'limidan ham («DizaynHub») uzish mumkin.
+    </p>
+  </div>
+</div>
+{% endblock %}

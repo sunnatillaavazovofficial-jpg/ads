@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Akkaunt ulash{% endblock %}
+{% block content %}
+<div class="card" style="max-width:460px">
+  <h2>📱 {{ phone }}</h2>
+  {% if step == 'password' %}
+    <p>Bu akkauntda ikki bosqichli himoya (2FA) yoqilgan. Bulutli parolni kiriting:</p>
+    <form method="post" action="/telegram/login/{{ token }}">
+      <div class="field"><input type="password" name="password" required autofocus autocomplete="off"></div>
+      <button class="btn btn-primary" type="submit">Ulash</button>
+    </form>
+  {% else %}
+    <p>Telegram ilovasiga kelgan <b>kodni</b> kiriting:</p>
+    <form method="post" action="/telegram/login/{{ token }}">
+      <div class="field"><input type="text" name="code" inputmode="numeric" maxlength="10" required autofocus autocomplete="one-time-code" placeholder="12345"></div>
+      <button class="btn btn-primary" type="submit">Tasdiqlash</button>
+    </form>
+    <p class="hint">⚠️ Kodni hech kimga yubormang va Telegramda boshqa chatga forward qilmang — Telegram uni bekor qiladi.</p>
+  {% endif %}
+  <hr>
+  <form method="post" action="/telegram/login/{{ token }}"><input type="hidden" name="cancel" value="1">
+    <button class="btn btn-sm" type="submit">Bekor qilish</button></form>
+</div>
+{% endblock %}

@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% from "_macros.html" import work_card, work_row %}
+{% block title %}Bosh sahifa{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Salom, {{ user.first_name }}!</h1>
+    <div class="muted">{{ user.role_name }}</div>
+  </div>
+  <div class="actions">
+    {% if user.can_create_work %}<a class="btn btn-primary" href="/works/new">➕ Yangi ish</a>{% endif %}
+    <a class="btn" href="/works">Barcha ishlar</a>
+  </div>
+</div>
+
+<div class="stats">
+  <div class="stat"><a href="/works?status=new"><div class="v">{{ counts.get('new', 0) }}</div><div class="l">Yangi (qabul kutmoqda)</div></a></div>
+  <div class="stat"><a href="/works?status=accepted"><div class="v">{{ counts.get('accepted', 0) }}</div><div class="l">Qabul qilingan</div></a></div>
+  <div class="stat"><a href="/works?status=in_progress"><div class="v">{{ counts.get('in_progress', 0) }}</div><div class="l">Jarayonda</div></a></div>
+  <div class="stat"><a href="/works?status=done"><div class="v">{{ counts.get('done', 0) }}</div><div class="l">Tayyor</div></a></div>
+  <div class="stat"><div class="v">{{ week_done }}</div><div class="l">7 kunda tayyorlangan</div></div>
+</div>
+
+<div class="grid-2">
+  <div class="card">
+    <div class="card-head">
+      <h2>🆕 Qabul kutayotgan ishlar</h2>
+      <a class="small" href="/works?status=new">Hammasi →</a>
+    </div>
+    {% if waiting %}
+      <div class="list">{% for w in waiting %}{{ work_row(w) }}{% endfor %}</div>
+    {% else %}
+      <p class="muted">Hozircha yangi ish yo'q.</p>
+    {% endif %}
+  </div>
+  <div class="card">
+    <div class="card-head">
+      <h2>{% if user.is_designer %}🎨 Menga biriktirilgan{% elif user.is_manager %}📌 Mening faol ishlarim{% else %}🕘 Oxirgi ishlar{% endif %}</h2>
+      <a class="small" href="/works?who=mine&status=active">Hammasi →</a>
+    </div>
+    {% set lst = mine if (user.is_designer or user.is_manager) else recent %}
+    {% if lst %}
+      <div class="list">{% for w in lst %}{{ work_row(w) }}{% endfor %}</div>
+    {% else %}
+      <p class="muted">Bo'sh.</p>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-head"><h2>Oxirgi ishlar</h2></div>
+  {% if recent %}
+    <div class="works">{% for w in recent %}{{ work_card(w) }}{% endfor %}</div>
+  {% else %}
+    <p class="muted">Hali ish joylanmagan.{% if user.can_create_work %} <a href="/works/new">Birinchi ishni joylang →</a>{% endif %}</p>
+  {% endif %}
+</div>
+{% endblock %}

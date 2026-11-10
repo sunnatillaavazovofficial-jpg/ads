@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Foydalanuvchilar{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>👥 Foydalanuvchilar</h1>
+    <div class="muted">Jami: {{ users|length }}. Yangi xodim ro'yxatdan o'tishi uchun unga tegishli kalitni bering (<a href="/admin/settings">Sozlamalar</a>).</div>
+  </div>
+</div>
+<div class="card">
+  <div class="table-wrap">
+  <table class="table">
+    <thead><tr><th>Ism Familiya (login)</th><th>Rol va holat</th><th>Telegram</th><th>Parol tiklash</th><th></th></tr></thead>
+    <tbody>
+    {% for u in users %}
+      <tr {% if not u.is_active %}style="opacity:.55"{% endif %}>
+        <td><b>{{ u.full_name }}</b><div class="muted small">{{ u.created_at|date }}</div></td>
+        <td>
+          <form method="post" action="/admin/users/{{ u.id }}" class="row" style="flex-wrap:nowrap">
+            <div><select name="role">{% for k, v in ROLES.items() %}<option value="{{ k }}" {% if u.role == k %}selected{% endif %}>{{ v }}</option>{% endfor %}</select></div>
+            <label class="flex-0 small" style="font-weight:400;margin:0;white-space:nowrap"><input type="checkbox" name="is_active" value="1" {% if u.is_active %}checked{% endif %}> faol</label>
+            <div class="flex-0"><button class="btn btn-sm" type="submit">💾</button></div>
+          </form>
+        </td>
+        <td>{{ "✅ bog'langan" if u.tg_user_id else "—" }}</td>
+        <td>
+          <form method="post" action="/admin/users/{{ u.id }}/password" class="row" style="flex-wrap:nowrap">
+            <div><input type="text" name="password" placeholder="Yangi parol" minlength="6" required></div>
+            <div class="flex-0"><button class="btn btn-sm" type="submit">OK</button></div>
+          </form>
+        </td>
+        <td class="right">
+          {% if u.id != user.id %}
+          <form method="post" action="/admin/users/{{ u.id }}/delete" class="inline" data-confirm="{{ u.full_name }} o'chirilsinmi? Uning ishlari saqlanib qoladi.">
+            <button class="btn btn-sm btn-danger" type="submit">O'chirish</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+{% endblock %}

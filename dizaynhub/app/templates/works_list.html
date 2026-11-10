@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% from "_macros.html" import work_card %}
+{% block title %}Ishlar{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Ishlar</h1>
+    <div class="muted">Jami: {{ total }}</div>
+  </div>
+  {% if user.can_create_work %}<div class="actions"><a class="btn btn-primary" href="/works/new">➕ Yangi ish</a></div>{% endif %}
+</div>
+
+<form class="filters" method="get" action="/works">
+  <input type="search" name="q" value="{{ q }}" placeholder="Qidirish: nomi, #raqam, mijoz, matn...">
+  <select name="status">
+    <option value="">Barcha holatlar</option>
+    <option value="active" {% if status == 'active' %}selected{% endif %}>Faol (topshirilmagan)</option>
+    {% for k, v in STATUSES.items() %}<option value="{{ k }}" {% if status == k %}selected{% endif %}>{{ v }}</option>{% endfor %}
+  </select>
+  <select name="type">
+    <option value="">Barcha turlar</option>
+    {% for t in types %}<option {% if type == t %}selected{% endif %}>{{ t }}</option>{% endfor %}
+  </select>
+  <select name="who">
+    <option value="">Hamma ishlar</option>
+    <option value="mine" {% if who == 'mine' %}selected{% endif %}>Mening ishlarim</option>
+  </select>
+  <button class="btn" type="submit">Filtrlash</button>
+  {% if q or status or type or who %}<a class="btn btn-sm" href="/works">Tozalash</a>{% endif %}
+</form>
+
+{% if works %}
+  <div class="works">{% for w in works %}{{ work_card(w) }}{% endfor %}</div>
+  {% if pages > 1 %}
+  <div class="pager">
+    {% for p in range(1, pages + 1) %}
+      {% if p == page %}<span class="btn btn-sm btn-primary">{{ p }}</span>
+      {% else %}<a class="btn btn-sm" href="?q={{ q|urlq }}&status={{ status }}&type={{ type|urlq }}&who={{ who }}&page={{ p }}">{{ p }}</a>{% endif %}
+    {% endfor %}
+  </div>
+  {% endif %}
+{% else %}
+  <div class="card"><p class="muted" style="margin:0">Hech narsa topilmadi.</p></div>
+{% endif %}
+{% endblock %}

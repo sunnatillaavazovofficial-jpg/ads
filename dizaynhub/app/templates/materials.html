@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}Materiallar{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>📦 Materiallar katalogi</h1>
+    <div class="muted">Ishlarning hisobida ishlatiladi: tannarx va sotish narxi 1 birlik uchun (so'm).</div>
+  </div>
+  <div class="actions"><a class="btn" href="/accounting">💰 Hisobot</a></div>
+</div>
+
+{% if user.is_admin %}
+<div class="card">
+  <h2>Yangi material / xizmat</h2>
+  <form method="post" action="/materials" class="row">
+    <div style="flex:2;min-width:200px"><label class="small muted">Nomi</label><input type="text" name="name" required></div>
+    <div><label class="small muted">Birlik</label>
+      <input type="text" name="unit" list="units" value="m²" required>
+    </div>
+    <div><label class="small muted">Tannarx (1 birlik)</label><input type="text" inputmode="decimal" name="cost_price" placeholder="0"></div>
+    <div><label class="small muted">Sotish narxi (1 birlik)</label><input type="text" inputmode="decimal" name="sell_price" placeholder="0"></div>
+    <div class="flex-0"><button class="btn btn-primary" type="submit">Qo'shish</button></div>
+  </form>
+  <datalist id="units">{% for u in units %}<option value="{{ u }}">{% endfor %}</datalist>
+</div>
+{% endif %}
+
+<div class="card">
+  <div class="table-wrap">
+  <table class="table">
+    <thead><tr><th>Nomi</th><th>Birlik</th><th class="num">Tannarx</th><th class="num">Sotish narxi</th><th class="num">Ustama</th><th></th></tr></thead>
+    <tbody>
+    {% for m in materials %}
+      {% if user.is_admin %}
+      <tr {% if not m.is_active %}style="opacity:.5"{% endif %}>
+        <td colspan="4">
+          <form method="post" action="/materials/{{ m.id }}" class="row" id="m{{ m.id }}">
+            <div style="flex:2;min-width:160px"><input type="text" name="name" value="{{ m.name }}"></div>
+            <div><input type="text" name="unit" list="units" value="{{ m.unit }}"></div>
+            <div><input type="text" inputmode="decimal" name="cost_price" value="{{ m.cost_price|num }}"></div>
+            <div><input type="text" inputmode="decimal" name="sell_price" value="{{ m.sell_price|num }}"></div>
+            <div class="flex-0"><button class="btn btn-sm" type="submit">💾</button></div>
+          </form>
+        </td>
+        <td class="num">{% if m.cost_price %}{{ ((m.sell_price - m.cost_price) / m.cost_price * 100)|round(0)|int }}%{% else %}—{% endif %}</td>
+        <td class="right">
+          <form method="post" action="/materials/{{ m.id }}" class="inline">
+            <input type="hidden" name="toggle" value="1">
+            <button class="btn btn-sm" type="submit">{{ "O'chirish" if m.is_active else "Yoqish" }}</button>
+          </form>
+        </td>
+      </tr>
+      {% else %}
+      {% if m.is_active %}
+      <tr><td>{{ m.name }}</td><td>{{ m.unit }}</td><td class="num">{{ m.cost_price|money }}</td><td class="num">{{ m.sell_price|money }}</td>
+        <td class="num">{% if m.cost_price %}{{ ((m.sell_price - m.cost_price) / m.cost_price * 100)|round(0)|int }}%{% else %}—{% endif %}</td><td></td></tr>
+      {% endif %}
+      {% endif %}
+    {% else %}
+      <tr><td colspan="6" class="muted">Katalog bo'sh.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% if not user.is_admin %}<p class="hint">Narxlarni faqat admin o'zgartiradi. Ish hisobida narxni qo'lda ham yozish mumkin.</p>{% endif %}
+</div>
+{% endblock %}

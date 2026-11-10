@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Tahrirlash #' ~ work.id if work else 'Yangi ish' }}{% endblock %}
+
+{% macro step(n, key, label, kind, flag=None) %}
+<div class="wf-step {% if errors.get(key) %}has-err{% endif %}" data-required="{{ kind }}" data-label="{{ label }}">
+  <div class="wf-head">
+    <label><span class="num">{{ n }}</span> {{ label }} <span class="req">*</span></label>
+    {% if flag %}
+    <label class="none-toggle" title="Bu ma'lumot yo'q bo'lsa belgilang">
+      <input type="checkbox" class="none-cb" name="{{ flag }}" value="1" {% if form.get(flag) %}checked{% endif %}> Yo'q
+    </label>
+    {% endif %}
+  </div>
+  {{ caller() }}
+  {% if errors.get(key) %}<div class="err">{{ errors[key] }}</div>{% endif %}
+</div>
+{% endmacro %}
+
+{% macro existing(kind) %}
+  {% if work and work.files_of(kind) %}
+  <div class="existing-files">
+    {% for f in work.files_of(kind) %}
+      <label>{% if f.is_image %}<img src="/files/{{ f.id }}?thumb=1" alt="" style="width:28px;height:28px;object-fit:cover;border-radius:4px">{% endif %}
+        {{ f.original_name }} <input type="checkbox" name="remove_file" value="{{ f.id }}"> o'chirish</label>
+    {% endfor %}
+  </div>
+  {% endif %}
+{% endmacro %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>{% if work %}Ishni tahrirlash #{{ work.id }}{% else %}Yangi ish joylash{% endif %}</h1>
+    <div class="muted">Barcha <span class="req">*</span> maydonlar majburiy. Ma'lumot bo'lmasa — «Yo'q» ni belgilang.</div>
+  </div>
+  {% if work %}<div class="actions"><a class="btn" href="/works/{{ work.id }}">← Ortga</a></div>{% endif %}
+</div>
+
+{% if errors %}<div class="alert alert-error">Formada xatolar bor — qizil bilan belgilangan joylarni tekshiring.</div>{% endif %}
+
+<form id="work-form" method="post" enctype="multipart/form-data" action="{{ '/works/' ~ work.id ~ '/edit' if work else '/works/new' }}" novalidate>
+<div class="cols">
+  <div>
+    {% call step(1, 'title', 'Ish nomi', 'text') %}
+      <div class="wf-body"><input type="text" name="title" value="{{ form.get('title') or '' }}" maxlength="200" placeholder="Masalan: «Oqtepa» do'koni uchun banner"></div>
+    {% endcall %}
+
+    {% call step(2, 'work_type', 'Ish turi', 'select') %}
+      <div class="wf-body">
+        <select name="work_type">
+          <option value="">— tanlang —</option>
+          {% for t in types %}<option {% if form.get('work_type') == t %}selected{% endif %}>{{ t }}</option>{% endfor %}
+        </select>
+      </div>
+    {% endcall %}
+
+    {% call step(3, 'short_desc', "Qisqa ta'rif", 'text', 'short_desc_none') %}
+      <div class="wf-body"><textarea name="short_desc" placeholder="Ish haqida qisqacha">{{ form.get('short_desc') or '' }}</textarea></div>
+    {% endcall %}
+
+    {% call step(4, 'size', "Ish o'lchami", 'size', 'size_none') %}
+      <div class="wf-body">
+        <div class="row">
+          <div><label class="small muted">Eni</label><input type="text" inputmode="decimal" name="width" value="{{ form.get('width') or '' }}" placeholder="300"></div>
+          <div><label class="small muted">Bo'yi</label><input type="text" inputmode="decimal" name="height" value="{{ form.get('height') or '' }}" placeholder="600"></div>
+          <div><label class="small muted">Birlik</label>
+            <select name="size_unit">{% for u in SIZE_UNITS %}<option {% if (form.get('size_unit') or 'sm') == u %}selected{% endif %}>{{ u }}</option>{% endfor %}</select>
+          </div>
+          <div><label class="small muted">Soni (dona)</label><input type="number" min="1" name="quantity" value="{{ form.get('quantity') or 1 }}"></div>
+        </div>
+      </div>
+    {% endcall %}
+
+    {% call step(5, 'image', 'Ish rasmi', 'file', 'image_none') %}
+      {{ existing('image') }}
+      <div class="wf-body">
+        <input type="file" name="image_files" multiple accept="image/*,.psd,.tif,.tiff,.svg">
+        <div class="hint picked"></div>
+        <div class="hint">Bir nechta rasm tanlash mumkin (namuna, eskiz, joy surati...).</div>
+      </div>
+    {% endcall %}
+
+    {% call step(6, 'extra_info', "Qo'shimcha ma'lumotlar", 'text', 'extra_info_none') %}
+      <div class="wf-body"><textarea name="extra_info" placeholder="Ranglar, uslub, mijoz istaklari...">{{ form.get('extra_info') or '' }}</textarea></div>
+    {% endcall %}
+
+    {% call step(7, 'logo', 'Logo', 'file', 'logo_none') %}
+      {{ existing('logo') }}
+      <div class="wf-body">
+        <input type="file" name="logo_files" multiple>
+        <div class="hint picked"></div>
+      </div>
+    {% endcall %}
+
+    {% call step(8, 'special_text', 'Maxsus matn', 'text', 'special_text_none') %}
+      <div class="wf-body"><textarea name="special_text" placeholder="Ishga yoziladigan matn: nom, telefon, shior...">{{ form.get('special_text') or '' }}</textarea></div>
+    {% endcall %}
+
+    {% call step(9, 'file', 'Fayllar', 'file', 'files_none') %}
+      {{ existing('file') }}
+      <div class="wf-body">
+        <input type="file" name="other_files" multiple>
+        <div class="hint picked"></div>
+        <div class="hint">Istalgan format: PSD, AI, CDR, PDF, ZIP...</div>
+      </div>
+    {% endcall %}
+  </div>
+
+  <div>
+    <div class="card">
+      <h2>Ixtiyoriy</h2>
+      <div class="field"><label>Mijoz</label><input type="text" name="client_name" value="{{ form.get('client_name') or '' }}"></div>
+      <div class="field"><label>Mijoz telefoni</label><input type="tel" name="client_phone" value="{{ form.get('client_phone') or '' }}"></div>
+      <div class="field"><label>Muddat</label><input type="date" name="deadline" value="{{ form.get('deadline') or '' }}"></div>
+      {% if chats %}
+      <div class="field"><label>Mijozning Telegram chati</label>
+        <select name="tg_chat_id">
+          <option value="">— bog'lanmagan —</option>
+          {% for c in chats %}<option value="{{ c.id }}" {% if (form.get('tg_chat_id')|string) == (c.id|string) %}selected{% endif %}>{{ c.title }}{% if c.username %} (@{{ c.username }}){% endif %}</option>{% endfor %}
+        </select>
+      </div>
+      {% endif %}
+    </div>
+    <div class="card">
+      <button class="btn btn-primary" type="submit" style="width:100%">{% if work %}💾 Saqlash{% else %}📤 Ishni yuborish{% endif %}</button>
+      {% if not work %}<p class="hint" style="margin-bottom:0">Saqlangandan so'ng ish bosh dizaynerga yuboriladi.</p>{% endif %}
+    </div>
+  </div>
+</div>
+</form>
+{% endblock %}

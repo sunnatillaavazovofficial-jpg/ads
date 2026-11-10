@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}{{ chat.title }}{% endblock %}
+{% block content %}
+<div class="cols">
+  <div class="card chat-wrap">
+    <div class="chat-head">
+      <a class="btn btn-sm" href="/telegram">←</a>
+      <div class="ava">{{ (chat.title or '?')[:1]|upper }}</div>
+      <div class="grow">
+        <b>{{ chat.title }}</b>{% if chat.username %} <a class="small" href="https://t.me/{{ chat.username }}" target="_blank" rel="noopener">@{{ chat.username }}</a>{% endif %}
+        <div class="muted small">📱 {{ account.display_name if account else '' }}{% if chat.note %} · 📝 {{ chat.note }}{% endif %}</div>
+      </div>
+    </div>
+    <div class="messages" id="messages" data-chat="{{ chat.id }}"
+         data-first="{{ msgs[0].id if msgs else 0 }}" data-last="{{ msgs[-1].id if msgs else 0 }}">
+      {% if error %}
+        <div class="alert alert-error">{{ error }}</div>
+      {% else %}
+        {% if msgs|length >= 40 %}<button class="btn btn-sm load-older" id="load-older" type="button">⬆ Oldingi xabarlar</button>{% endif %}
+        {% include "_tg_messages.html" %}
+        {% if not msgs %}<p class="muted" style="align-self:center">Xabarlar yo'q</p>{% endif %}
+      {% endif %}
+    </div>
+    <form class="chat-send" id="send-form" method="post" action="/telegram/chat/{{ chat.id }}/send">
+      <textarea name="text" placeholder="Javob yozish ({{ account.display_name if account else '' }} nomidan)... Enter — yuborish, Shift+Enter — yangi qator" required></textarea>
+      <button class="btn btn-primary" type="submit">➤</button>
+    </form>
+  </div>
+
+  <div>
+    <div class="card">
+      <h2>📝 Eslatma</h2>
+      <form method="post" action="/telegram/chat/{{ chat.id }}/note" class="row">
+        <div><input type="text" name="note" value="{{ chat.note }}" placeholder="Masalan: banner mijozi"></div>
+        <div class="flex-0"><button class="btn" type="submit">💾</button></div>
+      </form>
+    </div>
+    <div class="card">
+      <h2>🗂 Bog'langan ishlar</h2>
+      {% if works %}
+        <ul class="files">{% for w in works %}<li><a class="fname" href="/works/{{ w.id }}">#{{ w.id }} {{ w.title }}</a><span class="badge st-{{ w.status }}">{{ w.status_name }}</span></li>{% endfor %}</ul>
+      {% else %}
+        <p class="muted small" style="margin:0">Yo'q. Ish yaratayotganda «Mijozning Telegram chati» maydonidan tanlang.</p>
+      {% endif %}
+      {% if user.can_create_work %}<p style="margin:12px 0 0"><a class="btn btn-sm" href="/works/new">➕ Yangi ish</a></p>{% endif %}
+    </div>
+    <div class="card">
+      <h2>Boshqa chatlar</h2>
+      <div class="list">
+        {% for c in others[:12] if c.id != chat.id %}
+          <a class="list-item" href="/telegram/chat/{{ c.id }}"><div class="grow"><b>{{ c.title }}</b><span class="muted small">{{ (c.last_text or '')[:60] }}</span></div>{% if c.unread %}<span class="badge-count">{{ c.unread }}</span>{% endif %}</a>
+        {% endfor %}
+      </div>
+    </div>
+    {% if user.is_admin %}
+    <form method="post" action="/telegram/chat/{{ chat.id }}/untrack" data-confirm="Chat kuzatuvdan olib tashlansinmi?">
+      <button class="btn btn-sm btn-danger" type="submit">Kuzatuvdan olib tashlash</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
