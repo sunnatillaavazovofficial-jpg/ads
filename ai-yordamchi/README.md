@@ -8,13 +8,13 @@ Ekranda hamma dasturlar ustida turadigan yordamchi (Windows, `.exe`). ChatGPT (O
 
 | Ikonka | Vazifa | Tugma |
 |---|---|---|
-| 文A | **Tarjima**: o'zbekcha (yangi alifbo / lotin / kirill), English, Русский | `Ctrl+1` |
-| A✓ | **Grammatika**: xatolarni topib, faqat to'g'rilangan matnni beradi | `Ctrl+2` |
+| 文A | **Tarjima**: avval xatolarni to'g'rilaydi, keyin o'zbekcha (yangi alifbo / lotin / kirill), English yoki Русский tiliga tarjima qiladi | `Ctrl+1` |
+| A✓ | **Grammatika**: matn **qaysi tilda bo'lmasin** (o'zbek, rus, ingliz, turk…, aralash ham), xatolarni o'sha tilning qoidasi bo'yicha to'g'rilab, faqat to'g'rilangan matnni beradi | `Ctrl+2` |
 | Öz | **Yangi alifbo**: avval xatolarni to'g'rilaydi, keyin yangi o'zbek lotin alifbosida yozadi (Oʻ→Ö, Gʻ→Ğ, Sh→Ş, Ch→Ç) | `Ctrl+3` |
 | Ўз | **Kirill**: avval xatolarni to'g'rilaydi, keyin o'zbek kirill yozuvida yozadi | `Ctrl+4` |
 | 🔍 | **Inglizcha nima deb izlash**: faqat inglizcha nomini beradi; Google tugmasi bilan darhol izlash mumkin | `Ctrl+5` |
 
-Barcha javoblar **oddiy matn** bo'lib chiqadi: emoji va ortiqcha izohlarsiz.
+**Hamma funksiyada** avval grammatik xatolar (qaysi tilda bo'lmasin) to'g'rilanadi, keyin ish bajariladi. Barcha javoblar **oddiy matn** bo'lib chiqadi: emoji va ortiqcha izohlarsiz.
 
 ### Joyida tahrirlash (istalgan dasturda)
 
@@ -35,7 +35,8 @@ Ishlayotgan paytda yozuv kursori yonida kichik shaffof belgi turadi. Bufer (Ctrl
 - **PrintScreen** yoki **Win+Shift+S** bosilganda shu dastur ishlaydi (Windows vositasi o'rniga). Zaxira tugma: `Ctrl+Alt+S`.
 - **Oddiy skrinshot:** joyni belgilaysiz. Tepada shaffof ikonkalar bor: ⛶ butun ekran (`Enter`), ✕ bekor qilish (`Esc`). Rasm darhol **nusxalanadi** (`Ctrl+V` bilan joylashtirasiz) va **tanlangan papkaga saqlanadi**. Keyin pastki burchakda yozuvsiz, shaffof oynacha chiqadi: rasm va ikonkalar.
   - **HD** sifatni oshiradi: rasm 2 barobar kattalashtiriladi va tiniqlashtiriladi (bepul, kompyuterda bajariladi), so'ng nusxalanib saqlanadi. Tayyor bo'lgach, rasmda ✓ chiqadi;
-  - **✦** AI rasm tahrirlash oynasini ochadi; **👁** ochib ko'rsatadi; **✕** oynachani yopadi.
+  - **✏** skrinshotni **o'sha joyning o'zida** oddiy tahrirlash (AI'siz) uchun ochadi: qalam, marker, strelka, ramka, doira, matn, 6 rang, orqaga/oldinga. Har bir o'zgarishdan keyin rasm **darhol nusxalanadi** (`Ctrl+V` doim oxirgi holatni joylaydi). **✓** yoki `Enter` saqlab yopadi, `Esc` yopadi;
+  - **✦** AI rasm oynasini **alohida** ochadi; **👁** ochib ko'rsatadi; **✕** oynachani yopadi.
   - Yozuvlar faqat kursor ikonka ustiga borganda ko'rinadi.
 - **Ctrl+V** oxirgi skrinshotni joylaydi.
 - **Ctrl+V+S** yoki **Ctrl+Shift+V** **oxirgi 10 ta skrinshot**ni rasm joylanadigan joyning o'zida (yozuv kursori yonida) ko'rsatadi. Fon shaffof, ortiqcha yozuv va tugma yo'q. Bu faqat oxirgi skrinshotdan keyin **2 daqiqa** ishlaydi, keyin o'chadi.

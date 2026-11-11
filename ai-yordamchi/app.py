@@ -346,18 +346,25 @@ MODES = [
     {
         "key": "translate", "icon": "translate", "title": "Tarjima", "shortcut": "1",
         "placeholder": "Tarjima qilinadigan matnni yozing yoki qo'ying…",
-        "prompt": "You are a professional translator. Translate the user's text into {lang}. "
-                  "Preserve the meaning, tone and formatting. If the text is already in the "
-                  "target language, translate it into English instead. "
+        "prompt": "You are a professional translator and editor. The user's text may contain "
+                  "spelling, grammar and punctuation mistakes in any language — first understand "
+                  "and silently correct them, then translate the corrected text into {lang}. "
+                  "The translation must be fluent, natural and grammatically perfect in the "
+                  "target language. Preserve the meaning, tone and formatting. If the text is "
+                  "already in the target language, translate it into English instead. "
                   "Output ONLY the translation, nothing else.",
     },
     {
         "key": "grammar", "icon": "grammar", "title": "Grammatikani to'g'rilash", "shortcut": "2",
         "placeholder": "Xatoli matnni yozing — to'g'rilab, ma'noli qilib beraman…",
-        "prompt": "You are an expert editor. Find and fix ALL grammar, spelling, punctuation and "
-                  "word-choice errors in the user's text and rewrite it so it reads clearly, "
-                  "naturally and meaningfully. Keep the ORIGINAL language, alphabet and meaning. "
-                  "If the text is Uzbek Latin, use oʻ, gʻ and ’ correctly. "
+        "prompt": "You are an expert multilingual editor. Detect the language of the user's text "
+                  "automatically — it can be ANY language: Uzbek (Latin or Cyrillic), Russian, "
+                  "English, Turkish, Kazakh, Tajik, German or any other — and find and fix ALL "
+                  "grammar, spelling, punctuation and word-choice errors according to the rules "
+                  "of THAT language, so the text reads clearly, naturally and meaningfully. If the "
+                  "text mixes languages, fix every part by the rules of its own language. Keep the "
+                  "ORIGINAL language(s), alphabet and meaning; never translate. If the text is "
+                  "Uzbek Latin, use oʻ, gʻ and ’ correctly. "
                   "Output ONLY the corrected text — no explanations, no list of errors.",
     },
     {
@@ -388,8 +395,10 @@ MODES = [
         "placeholder": "Narsani yoki xususiyatini tasvirlang, masalan: \"telefonni stolga "
                        "qotiradigan egiluvchan ushlagich\"…",
         "prompt": "The user describes an object, product, spare part, tool, material, software "
-                  "feature or property (usually in Uzbek or Russian) and may not know its name. "
-                  "Identify exactly what it is and output ONLY its most precise ENGLISH name / "
+                  "feature or property (usually in Uzbek or Russian, possibly with typos and "
+                  "grammar mistakes — understand what is meant) and may not know its name. "
+                  "Identify exactly what it is and output ONLY its most precise, correctly spelled "
+                  "ENGLISH name / "
                   "search term (usually 1-5 words) on a single line — nothing else, no "
                   "explanation, no alternatives, no label.",
     },
@@ -403,6 +412,13 @@ EXTRA_TOOLS = [
      "shortcut": ""},
 ]
 TOOL_KEYS = [m["key"] for m in MODES] + [t["key"] for t in EXTRA_TOOLS]
+
+# Hamma funksiyada: avval grammatik xatolar (qaysi tilda bo'lmasin) to'g'rilanadi, keyin ish bajariladi
+GRAMMAR_FIRST = ("\n\nAlways start by understanding the user's text and correcting every spelling, "
+                 "grammar and punctuation mistake in it, whatever language it is written in "
+                 "(including mixed-language text). Then do the task on the corrected text. The "
+                 "result you output must itself be free of any grammar, spelling or punctuation "
+                 "errors.")
 
 PLAIN_RULE = ("\n\nIMPORTANT: answer in plain text only. Never use emojis, markdown (**, #, `), "
               "bullet points, quotation marks around the answer, headings, labels like "
@@ -1129,7 +1145,9 @@ class ImageWorker(QThread):
                 json={"model": self.cfg.get("model", DEFAULT_MODEL), "temperature": 0,
                       "messages": [{"role": "system", "content":
                                     "Translate the user's image-editing instruction into clear, "
-                                    "precise English. Output only the translation, plain text."},
+                                    "precise English. It may contain typos and grammar mistakes "
+                                    "in any language — understand what is meant. Output only the "
+                                    "translation, plain text."},
                                    {"role": "user", "content": text}]},
                 timeout=40)
             if r.status_code == 200:
@@ -1492,6 +1510,7 @@ class CaptureOverlay(QWidget):
                     int(r.height() * dpr))
         img = self.pm.copy(src).toImage()
         img.setDevicePixelRatio(1.0)
+        self.sel_global = QRect(self.geometry().topLeft() + r.topLeft(), r.size())
         self.hide()
         self.captured.emit(img)
         self.close()
@@ -1555,8 +1574,9 @@ class Canvas(QWidget):
     UI_WIDTHS = [3, 6, 11]
     UI_FONTS = [16, 22, 32]
 
-    def __init__(self, image: QImage):
+    def __init__(self, image: QImage, pad=12):
         super().__init__()
+        self.pad = pad
         self.img = image.convertToFormat(QImage.Format_ARGB32)
         self.items, self.redo_stack = [], []
         self.cur = None
@@ -1575,7 +1595,7 @@ class Canvas(QWidget):
         self.update()
 
     def geom(self):
-        pad = 12
+        pad = self.pad
         iw, ih = max(1, self.img.width()), max(1, self.img.height())
         sc = min((self.width() - 2 * pad) / iw, (self.height() - 2 * pad) / ih, 2.0)
         sc = max(sc, 0.01)
@@ -2291,9 +2311,10 @@ def glass_btn(icon, tip, s, size=42, with_shadow=True):
 
 
 class ShotToast(QWidget):
-    def __init__(self, ctrl, img: QImage, path: str, screen_geo: QRect):
+    def __init__(self, ctrl, img: QImage, path: str, screen_geo: QRect, rect: QRect = None):
         super().__init__(None, Qt.Tool | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
         self.ctrl, self.img, self.path = ctrl, img, path
+        self.rect_ = rect
         self.entry = None
         self.enhanced_path = ""
         self.worker = None
@@ -2311,20 +2332,25 @@ class ShotToast(QWidget):
         self.thumb.mousePressEvent = lambda e: self._view()
         lay.addWidget(self.thumb)
 
-        col = QVBoxLayout()
+        col = QGridLayout()
         col.setSpacing(int(6 * s))
         self.b_hd = glass_btn("hd", "Sifatini oshirish", s)
-        self.b_ai = glass_btn("sparkle", "AI rasm", s)
+        self.b_edit = glass_btn("pen", "Tahrirlash (joyida, AI'siz)", s)
+        self.b_ai = glass_btn("sparkle", "AI rasm (alohida)", s)
         self.b_view = glass_btn("eye", "Ko'rish", s)
         self.b_close = glass_btn("close", "Yopish", s)
         self.b_hd.clicked.connect(self.enhance)
+        self.b_edit.clicked.connect(self.to_edit)
         self.b_ai.clicked.connect(self.to_ai)
         self.b_view.clicked.connect(self._view)
         self.b_close.clicked.connect(self.close)
         self.b_view.hide()
-        for b in (self.b_hd, self.b_ai, self.b_view, self.b_close):
-            col.addWidget(b)
-        col.addStretch()
+        col.addWidget(self.b_hd, 0, 0)
+        col.addWidget(self.b_view, 0, 0)
+        col.addWidget(self.b_edit, 0, 1)
+        col.addWidget(self.b_ai, 1, 0)
+        col.addWidget(self.b_close, 1, 1)
+        col.setRowStretch(2, 1)
         lay.addLayout(col)
 
         self.timer = QTimer(self)
@@ -2344,7 +2370,7 @@ class ShotToast(QWidget):
 
     def enhance(self):
         self.timer.stop()
-        for b in (self.b_hd, self.b_ai):
+        for b in (self.b_hd, self.b_ai, self.b_edit):
             b.setEnabled(False)
         self.thumb.set_state("work")
         self.worker = EnhanceWorker(image_to_png(self.img))
@@ -2377,6 +2403,7 @@ class ShotToast(QWidget):
     def _final(self):
         self.b_hd.hide()
         self.b_ai.setEnabled(True)
+        self.b_edit.setEnabled(True)
         self.b_view.setVisible(bool(self.enhanced_path or self.path))
         self.adjustSize()
         self.timer.start(10000)
@@ -2390,9 +2417,187 @@ class ShotToast(QWidget):
         self.ctrl.open_editor(self.img)
         self.close()
 
+    def to_edit(self):
+        r = self.rect_
+        if r is None:
+            g = QGuiApplication.primaryScreen().availableGeometry()
+            r = QRect(g.center().x() - self.img.width() // 4, g.center().y() - self.img.height() // 4,
+                      self.img.width() // 2, self.img.height() // 2)
+        self.ctrl.open_quick_editor(self.img, r, self.entry)
+        self.close()
+
     def closeEvent(self, e):
         if self.worker is not None and self.worker.isRunning():
             self.worker.wait(5000)
+        self.ctrl.forget(self)
+        super().closeEvent(e)
+
+
+# ---------------------------------------------------------------------------
+# Skrinshotni joyida tahrirlash (AI'siz): o'sha joyda ochiladi, har o'zgarish darhol nusxalanadi
+# ---------------------------------------------------------------------------
+class QuickEditor(QWidget):
+    TOOLS = [("pen", "Qalam"), ("marker", "Marker"), ("arrow", "Strelka"),
+             ("rect", "To'rtburchak"), ("ellipse", "Doira"), ("text", "Matn yozish")]
+    M = 16                                   # soya uchun bo'sh joy
+
+    def __init__(self, ctrl, img: QImage, rect: QRect, entry=None):
+        super().__init__(None, Qt.Tool | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
+        self.ctrl, self.entry = ctrl, entry
+        self.s = s = SCALES.get(ctrl.cfg.get("size"), 1.0)
+        self.setAttribute(Qt.WA_TranslucentBackground)
+        self.setAttribute(Qt.WA_DeleteOnClose)
+        self.setWindowTitle(f"Tahrirlash — {APP_NAME}")
+        self.done_ = False
+
+        scr = QGuiApplication.screenAt(rect.center()) or QGuiApplication.primaryScreen()
+        g = scr.availableGeometry()
+        # rasm aynan olingan joyida turadi (ekranga sig'masa — kichraytiriladi)
+        cw, ch = max(40, rect.width()), max(30, rect.height())
+        k = min(1.0, (g.width() - 24) / cw, (g.height() - 100) / ch)
+        cw, ch = int(cw * k), int(ch * k)
+        cx = max(g.left() + 12, min(rect.x(), g.right() - cw - 12))
+        cy = max(g.top() + 12, min(rect.y(), g.bottom() - ch - 12))
+        self.canvas_g = QRect(cx, cy, cw, ch)
+
+        self.canvas = Canvas(img, pad=0)
+        self.canvas.setParent(self)
+        self.canvas.setMinimumSize(1, 1)
+        self.canvas.setFixedSize(cw, ch)
+        self.canvas.changed.connect(self._changed)
+
+        # yozuvsiz, shaffof ikonkalar paneli
+        tb = QFrame(self)
+        tb.setObjectName("glass")
+        shadow(tb, 30, 8, 60)
+        hl = QHBoxLayout(tb)
+        hl.setContentsMargins(8, 6, 8, 6)
+        hl.setSpacing(4)
+        self.tool_group = QButtonGroup(self)
+        for key, tip in self.TOOLS:
+            b = glass_btn(key, tip, s, 36, with_shadow=False)
+            b.setCheckable(True)
+            b.setChecked(key == "pen")
+            b.clicked.connect(lambda _=False, k_=key: self._tool(k_))
+            self.tool_group.addButton(b)
+            hl.addWidget(b)
+        hl.addSpacing(6)
+        self.color_group = QButtonGroup(self)
+        d = int(20 * s)
+        for col in PEN_COLORS:
+            b = QPushButton()
+            b.setCheckable(True)
+            b.setFixedSize(d, d)
+            b.setCursor(Qt.PointingHandCursor)
+            ring = "#C7CBD4" if col.upper() == "#FFFFFF" else "#FFFFFF"
+            b.setStyleSheet(f"QPushButton {{ background: {col}; border: 2px solid {ring}; "
+                            f"border-radius: {d // 2}px; padding: 0; min-width: {d - 4}px; "
+                            f"max-width: {d - 4}px; min-height: {d - 4}px; max-height: {d - 4}px; }}"
+                            f"QPushButton:checked {{ border: 3px solid #6B7280; }}")
+            b.setChecked(col == PEN_COLORS[0])
+            b.clicked.connect(lambda _=False, c=col: setattr(self.canvas, "color", QColor(c)))
+            self.color_group.addButton(b)
+            hl.addWidget(b)
+        hl.addSpacing(6)
+        for icon, tip, fn in [("undo", "Orqaga (Ctrl+Z)", self.canvas.undo),
+                              ("redo", "Oldinga (Ctrl+Y)", self.canvas.redo)]:
+            b = glass_btn(icon, tip, s, 36, with_shadow=False)
+            b.clicked.connect(fn)
+            hl.addWidget(b)
+        hl.addSpacing(6)
+        for icon, tip, fn in [("check", "Tayyor: nusxalash va saqlash (Enter)", self.finish),
+                              ("save", "Boshqa joyga saqlash…", self._save_as),
+                              ("sparkle", "AI rasm (alohida)", self._to_ai),
+                              ("close", "Yopish (Esc)", self.close)]:
+            b = glass_btn(icon, tip, s, 36, with_shadow=False)
+            b.clicked.connect(fn)
+            hl.addWidget(b)
+        tb.adjustSize()
+        self.tb = tb
+
+        # panel: rasm ostida, sig'masa — ustida, u ham bo'lmasa — rasm ichida pastda
+        tw, th = tb.width(), tb.height()
+        tx = max(g.left() + 4, min(self.canvas_g.center().x() - tw // 2, g.right() - tw - 4))
+        if self.canvas_g.bottom() + 10 + th <= g.bottom():
+            ty = self.canvas_g.bottom() + 10
+        elif self.canvas_g.top() - 10 - th >= g.top():
+            ty = self.canvas_g.top() - 10 - th
+        else:
+            ty = self.canvas_g.bottom() - th - 10
+        tb_g = QRect(tx, ty, tw, th)
+        win = self.canvas_g.united(tb_g).adjusted(-self.M, -self.M, self.M, self.M)
+        self.setGeometry(win)
+        self.canvas.move(self.canvas_g.topLeft() - win.topLeft())
+        tb.move(tb_g.topLeft() - win.topLeft())
+        tb.raise_()
+
+        self.copy_timer = QTimer(self)
+        self.copy_timer.setSingleShot(True)
+        self.copy_timer.timeout.connect(self._copy)
+        QShortcut(QKeySequence("Ctrl+Z"), self, activated=self.canvas.undo)
+        QShortcut(QKeySequence("Ctrl+Y"), self, activated=self.canvas.redo)
+        QShortcut(QKeySequence("Ctrl+C"), self, activated=self._copy)
+        QShortcut(QKeySequence("Return"), self, activated=self.finish)
+        QShortcut(QKeySequence("Enter"), self, activated=self.finish)
+        QShortcut(QKeySequence("Escape"), self, activated=self.close)
+
+    def paintEvent(self, e):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        r = QRectF(self.canvas.geometry())
+        for i, a in enumerate((34, 22, 12)):                     # rasm atrofida soya va oq ramka
+            p.setPen(Qt.NoPen)
+            p.setBrush(QColor(0, 0, 0, a))
+            p.drawRoundedRect(r.adjusted(-2 - i, -1 - i, 2 + i, 4 + i), 6 + i, 6 + i)
+        p.setBrush(Qt.NoBrush)
+        p.setPen(QPen(QColor(255, 255, 255, 240), 2))
+        p.drawRoundedRect(r.adjusted(-1, -1, 1, 1), 4, 4)
+        p.end()
+
+    def _tool(self, k):
+        self.canvas._commit_text()
+        self.canvas.tool = k
+        self.canvas.setCursor(Qt.IBeamCursor if k == "text" else Qt.CrossCursor)
+
+    def _changed(self):
+        self.copy_timer.start(120)                 # har o'zgarishdan keyin darhol nusxalanadi
+
+    def _copy(self):
+        img = self.canvas.render_flat()
+        QGuiApplication.clipboard().setImage(img)
+        if self.entry is not None:
+            self.ctrl.update_shot(self.entry, img, "")
+        return img
+
+    def finish(self):
+        if self.done_:
+            return
+        self.done_ = True
+        img = self._copy()
+        try:
+            path = unique_path(images_subdir(self.ctrl.cfg, "shot"), f"Skrinshot_{stamp()}_tahrir")
+            img.save(path)
+            if self.entry is not None:
+                self.entry["path"] = path
+        except Exception:
+            pass
+        self.close()
+
+    def _save_as(self):
+        img = self._copy()
+        fn, _ = QFileDialog.getSaveFileName(self, "Saqlash",
+                                            os.path.join(images_subdir(self.ctrl.cfg, "shot"),
+                                                         f"Skrinshot_{stamp()}.png"),
+                                            "PNG (*.png);;JPEG (*.jpg)")
+        if fn:
+            img.save(fn)
+
+    def _to_ai(self):
+        img = self._copy()
+        self.ctrl.open_editor(img)
+        self.close()
+
+    def closeEvent(self, e):
         self.ctrl.forget(self)
         super().closeEvent(e)
 
@@ -3365,7 +3570,7 @@ class MainWindow(QWidget):
                 return
         m = MODE_BY_KEY[self.mode]
         lang = self.lang_box.currentText()
-        system = m["prompt"].format(lang=LANGS[lang]) + PLAIN_RULE
+        system = m["prompt"].format(lang=LANGS[lang]) + GRAMMAR_FIRST + PLAIN_RULE
         new_alpha = self.mode == "newalpha" or (self.mode == "translate" and "yangi" in lang)
         self._req = (m["title"], lang if self.mode == "translate" else "", text, new_alpha)
         self.send_btn.setEnabled(False)
@@ -3452,6 +3657,7 @@ def make_style(s: float, accent: str = C_ACCENT) -> str:
     border-radius: 26px; }}
 QToolButton#glassBtn {{ background: rgba(255,255,255,235); border: 1px solid rgba(230,232,238,200); }}
 QToolButton#glassBtn:hover {{ background: #FFFFFF; border: 1px solid #D5D8E0; }}
+QToolButton#glassBtn:checked {{ background: #DCE1EA; border: 1px solid #9CA3AF; }}
 QToolButton#glassBtn:disabled {{ background: rgba(255,255,255,150); }}
 #vsep {{ background: {C_BORDER}; margin: 0 {px(4)}; }}
 QToolButton#tool {{ border-radius: {px(10)}; }}
@@ -3634,6 +3840,7 @@ class Controller:
 
     def _captured(self, img):
         screen_geo = self.overlay.geometry() if self.overlay is not None else None
+        sel = getattr(self.overlay, "sel_global", None) if self.overlay is not None else None
         self._capture_done()
         if self.capture_mode == "ai":
             self.open_editor(img)
@@ -3652,7 +3859,7 @@ class Controller:
         if self.cfg.get("shot_ask", True):
             scr = QGuiApplication.screenAt(screen_geo.center()) if screen_geo else None
             g = (scr or QGuiApplication.primaryScreen()).availableGeometry()
-            t = ShotToast(self, img, path, g)
+            t = ShotToast(self, img, path, g, sel)
             t.entry = entry
             self.windows.append(t)
             t.show()
@@ -3758,7 +3965,8 @@ class Controller:
 
     def _inplace_run(self, m, text, saved, bub, pos):
         lang = self.cfg.get("lang", "O'zbekcha (lotin)")
-        system = m["prompt"].format(lang=LANGS.get(lang, LANGS["O'zbekcha (lotin)"])) + PLAIN_RULE
+        system = (m["prompt"].format(lang=LANGS.get(lang, LANGS["O'zbekcha (lotin)"])) +
+                  GRAMMAR_FIRST + PLAIN_RULE)
         w = Worker(self.cfg["api_key"], self.cfg.get("model", DEFAULT_MODEL), system, text)
         self.workers.append(w)
         cb = QGuiApplication.clipboard()
@@ -3809,6 +4017,13 @@ class Controller:
     # ---------------- oynalar ----------------
     def open_editor(self, img: QImage):
         w = EditorWindow(self, img)
+        self.windows.append(w)
+        w.show()
+        w.raise_()
+        w.activateWindow()
+
+    def open_quick_editor(self, img, rect, entry=None):
+        w = QuickEditor(self, img, rect, entry)
         self.windows.append(w)
         w.show()
         w.raise_()
