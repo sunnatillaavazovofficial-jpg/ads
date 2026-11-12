@@ -1,0 +1,9 @@
+# DizaynHub uchun Caddy sozlamasi — HTTPS sertifikat avtomatik olinadi.
+# 1) Pastdagi domenni o'zingiznikiga almashtiring.
+# 2) Domenning A yozuvi shu kompyuterning statik IP'iga yo'naltirilgan bo'lsin.
+# 3) Routerda 80 va 443 portlar shu kompyuterga ochilgan bo'lsin.
+
+ish.sizning-domen.uz {
+	encode gzip
+	reverse_proxy 127.0.0.1:8000
+}

@@ -119,8 +119,59 @@ Uyda statik IP bo'lmasa ham ishlaydi va avtomatik HTTPS beradi.
    (`COOKIE_SECURE=true` bo'lganda Wi-Fi orqali `http://192.168...` manzili ishlamaydi —
    hamma domen orqali kirsin.)
 
-> Muqobil yo'l: routerda 8000-portni ochish + statik IP + Caddy/Nginx (HTTPS uchun).
-> Bunda `.env` da `HOST=0.0.0.0` qiling.
+## 4b. Statik (oq) IP orqali ulash — Cloudflare'siz
+
+Provayderdan statik IP olgan bo'lsangiz (quyida misol uchun `203.0.113.10` yozilgan —
+o'rniga o'z IP'ingizni qo'ying), saytni shu IP orqali ochish mumkin.
+
+> Telegram bot va ulangan akkauntlar uchun port ochish shart emas — ular o'zi Telegramga
+> ulanadi. Port faqat saytni brauzerda ochish uchun kerak.
+
+**Avval IP haqiqatan shu kompyuterniki ekanini tekshiring:**
+
+1. Server kompyuterida brauzerda <https://2ip.ru> ni oching — u ko'rsatgan IP sizning
+   IP'ingiz bilan bir xil bo'lishi kerak.
+2. Router sozlamalarida (odatda `192.168.1.1` yoki `192.168.0.1`) **WAN / Internet IP**
+   ham shu bo'lishi kerak. Agar routerda `10.x.x.x`, `100.64…100.127.x.x` yoki
+   `192.168.x.x` ko'rsatilsa — provayder «kulrang» IP bergan, port ochib bo'lmaydi.
+   Bunda 4-bo'limdagi Cloudflare Tunnel'dan foydalaning.
+3. IP **statik** ekanini provayderdan aniqlang (dinamik IP vaqti-vaqti bilan o'zgaradi).
+
+**Sozlash:**
+
+1. `.env` faylida:
+   ```
+   HOST=0.0.0.0
+   PUBLIC_URL=http://203.0.113.10:8000
+   COOKIE_SECURE=false
+   ```
+2. Routerda server kompyuteriga doimiy lokal IP bering (DHCP reservation),
+   masalan `192.168.1.15`.
+3. Routerda **Port forwarding** (Virtual server): tashqi port `8000` → `192.168.1.15:8000`, TCP.
+4. Windows brandmauerida portni oching — PowerShell'ni **administrator** sifatida ochib:
+   ```
+   New-NetFirewallRule -DisplayName "DizaynHub" -Direction Inbound -Protocol TCP -LocalPort 8000 -Action Allow
+   ```
+5. Dasturni qayta ishga tushiring.
+6. **Tekshirish:** telefonda Wi-Fi'ni o'chiring (mobil internet bilan) va
+   `http://203.0.113.10:8000` ni oching. Yoki <https://2ip.ru/check-port/> saytida
+   8000-portni tekshiring — «открыт» chiqishi kerak.
+
+⚠️ Bu usulda aloqa **shifrlanmagan** (http): parollar va Telegram yozishmalari internetda
+ochiq ketadi. Sinab ko'rish uchun mayli, doimiy ishlatish uchun domen + HTTPS qiling:
+
+1. Domenning **A yozuvini** IP'ingizga yo'naltiring: `ish.sizning-domen.uz → 203.0.113.10`.
+2. Routerda **80 va 443** portlarni server kompyuteriga oching (8000-portni endi yopish mumkin).
+3. <https://caddyserver.com/download> dan Windows uchun `caddy.exe` ni yuklab,
+   `deploy` papkasiga qo'ying. `deploy\Caddyfile` dagi domenni o'zingiznikiga almashtiring
+   va `deploy\caddy.bat` ni ishga tushiring — HTTPS sertifikat avtomatik olinadi.
+   `caddy.bat` yorlig'ini ham `shell:startup` ga qo'ying (5-bo'lim).
+4. `.env` faylida:
+   ```
+   HOST=127.0.0.1
+   PUBLIC_URL=https://ish.sizning-domen.uz
+   COOKIE_SECURE=true
+   ```
 
 ## 5. Kompyuter yonganda avtomatik ishga tushirish
 
