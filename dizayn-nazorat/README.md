@@ -59,7 +59,7 @@ curl -fsSL https://get.docker.com | sh
 2. Loyihani yuklab oling va papkaga kiring:
 
 ```bash
-git clone https://github.com/sunnatillaavazovofficial-jpg/ads.git && cd ads/dizayn-nazorat
+git clone -b claude/bold-albattani-13sehu https://github.com/sunnatillaavazovofficial-jpg/ads.git && cd ads/dizayn-nazorat
 ```
 
 3. Sozlamalar faylini yarating va to'ldiring (pastdagi «Sozlamalar» bo'limiga qarang):
