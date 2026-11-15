@@ -27,7 +27,7 @@ Xabarlar serverdagi SQLite bazasida `KEEP_DAYS` kun (standart 30 kun) saqlanadi,
 ## 1. Botni BotFather'da sozlash (bir marta)
 
 1. [@BotFather](https://t.me/BotFather) → `/mybots` → botingizni tanlang
-2. **Bot Settings → Business Mode → Turn on** ✅ (shuni yoqmasangiz bot ishlamaydi)
+2. **Bot Settings → Secretary Mode → Turn on** ✅ (oldin «Business Mode» deb atalgan; shuni yoqmasangiz bot ishlamaydi)
 
 ## 2. Serverga o'rnatish
 
