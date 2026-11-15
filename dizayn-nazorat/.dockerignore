@@ -5,3 +5,8 @@ __pycache__
 .venv
 venv
 .git
+caddy_data
+Caddyfile
+docker-compose.override.yml
+.dn_mode
+.dn_domain

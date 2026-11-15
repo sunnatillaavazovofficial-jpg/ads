@@ -48,7 +48,20 @@ Telegram akkauntning saralangan chatlari bitta joyda.
 | Menejer | Ishlar, narxlar ro'yxati, Telegram chatlar |
 | Dizayner | Ishlarni ko'rish, ochish, tahrirlash, o'chirish, narx hisoblash, fayl yuklash, holat o'zgartirish |
 
-## Serverga o'rnatish (Ubuntu, Docker bilan)
+## Eng oson o'rnatish — bitta buyruq
+
+Ubuntu/Debian serverda (hosting panelidagi «Console» oynasida yoki SSH orqali) shu buyruqni qo'ying:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/sunnatillaavazovofficial-jpg/ads/refs/heads/claude/bold-albattani-13sehu/dizayn-nazorat/install.sh | sudo bash
+```
+
+Skript o'zi Docker'ni o'rnatadi, kodni yuklaydi, administrator paroli, bot tokeni, Telegram API va domenni
+so'raydi, HTTPS ni (Caddy) sozlaydi va saytni ishga tushiradi. Oxirida sayt manzili va login chiqadi.
+Dastur `/opt/dizayn-nazorat` ga o'rnatiladi. **Yangilash** uchun shu buyruqni qayta ishga tushiring —
+ma'lumotlar va sozlamalar saqlanib qoladi.
+
+## Serverga qo'lda o'rnatish (Ubuntu, Docker bilan)
 
 1. Docker o'rnating:
 

@@ -41,7 +41,7 @@ async def bootstrap():
         if not n:
             db.add(
                 User(
-                    username=ADMIN_USERNAME,
+                    username=ADMIN_USERNAME.strip().lower(),
                     full_name="Administrator",
                     password_hash=hash_password(ADMIN_PASSWORD),
                     role="admin",
