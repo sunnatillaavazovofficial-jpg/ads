@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% from "partials/macros.html" import icon with context %}
+{% block title %}{{ 'Yangi xodim' if not u else u.display_name }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <a class="btn icon ghost" href="/users">{{ icon('back') }}</a>
+  <h1>{{ 'Yangi xodim' if not u else u.display_name }}</h1>
+  {% if u and u.id != user.id %}
+  <form method="post" action="/users/{{ u.id }}/delete" onsubmit="return confirm('Xodimni o\'chirasizmi? Uning ishlari saqlanib qoladi.')">
+    <button class="btn danger">{{ icon('trash') }} O'chirish</button>
+  </form>
+  {% endif %}
+</div>
+{% if error %}<div class="alert error mb">{{ error }}</div>{% endif %}
+<form class="card" method="post" style="max-width:640px">
+  <div class="card-b form-grid">
+    <div class="field c6"><label class="req">To'liq ismi</label><input class="input" name="full_name" value="{{ u.full_name if u else (form.full_name if form else '') }}" required></div>
+    <div class="field c6"><label class="req">Login</label><input class="input" name="username" value="{{ u.username if u else (form.username if form else '') }}" required autocomplete="off"></div>
+    <div class="field c6"><label>Telefon</label><input class="input" name="phone" value="{{ (u.phone or '') if u else '' }}"></div>
+    <div class="field c6"><label>Rol</label>
+      <select class="input" name="role">
+        {% for code, label in ROLES.items() %}<option value="{{ code }}" {{ 'selected' if (u and u.role == code) or (not u and code == 'designer') }}>{{ label }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="field c12"><label class="{{ 'req' if not u }}">{{ 'Parol' if not u else 'Yangi parol (o\'zgartirish uchun)' }}</label><input class="input" name="password" type="password" autocomplete="new-password" {{ 'required' if not u }} minlength="6"></div>
+    {% if u %}
+    {% if u.id != user.id %}<label class="check c12"><input type="checkbox" name="is_active" value="1" {{ 'checked' if u.is_active }}> Faol (tizimga kira oladi)</label>{% endif %}
+    {% if u.telegram_id %}<label class="check c12"><input type="checkbox" name="unlink_tg" value="1"> Telegram botdan uzish{% if u.telegram_username %} (@{{ u.telegram_username }}){% endif %}</label>{% endif %}
+    {% endif %}
+    <div class="c12 hint">
+      <b>Administrator</b> — hamma narsa, xodimlar va Telegram akkauntlarni boshqaradi.<br>
+      <b>Menejer</b> — ishlar, narxlar, Telegram chatlar.<br>
+      <b>Dizayner</b> — ishlarni ko'radi, ochadi, tahrirlaydi, o'chiradi, narx hisoblaydi, fayl yuklaydi.
+    </div>
+    <div class="c12"><button class="btn primary">Saqlash</button></div>
+  </div>
+</form>
+{% endblock %}

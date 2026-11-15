@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Xato {{ code }}{% endblock %}
+{% macro body() %}
+<div class="card" style="max-width:520px;margin:60px auto;text-align:center">
+  <div class="card-b" style="padding:36px">
+    <div style="font-size:44px;font-weight:800;color:var(--primary)">{{ code }}</div>
+    <p style="font-size:16px">{{ message }}</p>
+    <a class="btn primary" href="/">Bosh sahifaga qaytish</a>
+  </div>
+</div>
+{% endmacro %}
+{% block content %}{{ body() }}{% endblock %}
+{% block bare %}<div style="padding:16px">{{ body() }}</div>{% endblock %}

@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% from "partials/macros.html" import icon with context %}
+{% block title %}Telegram chatlar{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>Telegram chatlar</h1>
+  {% if user.is_admin %}<a class="btn" href="/tg/accounts">{{ icon('phone') }} Akkauntlar va saralash</a>{% endif %}
+</div>
+{% if not enabled %}
+<div class="alert warn mb">Telegram akkauntlar sozlanmagan (<code>TG_API_ID</code>, <code>TG_API_HASH</code>). {% if user.is_admin %}<a href="/tg/accounts">Batafsil</a>{% endif %}</div>
+{% elif not accounts %}
+<div class="alert info mb">Hali birorta akkaunt ulanmagan. {% if user.is_admin %}<a href="/tg/accounts">Akkaunt ulash</a>{% else %}Administratorga murojaat qiling.{% endif %}</div>
+{% endif %}
+
+<div class="card inbox" id="inbox" data-open="{{ open_chat or '' }}">
+  <div class="chats">
+    <div class="chats-h">
+      <input class="input sm" id="chat-search" placeholder="Qidirish...">
+      <div class="acc-filter" id="acc-filter">
+        <button class="active" data-acc="">Hammasi</button>
+        {% for a in accounts %}<button data-acc="{{ a.id }}"><span class="dot" style="background: {{ a.color }}"></span>{{ a.name }}</button>{% endfor %}
+        <button data-acc="unread">O'qilmagan</button>
+      </div>
+    </div>
+    <div class="chat-list" id="chat-list"><div class="empty small">Yuklanmoqda...</div></div>
+  </div>
+  <div class="conv" id="conv">
+    <div class="conv-empty" id="conv-empty"><div><div style="font-size:40px">💬</div>Chap tomondan chatni tanlang</div></div>
+    <div class="conv-h hidden" id="conv-h">
+      <button class="btn sm icon ghost only-mobile" id="back-btn">{{ icon('back') }}</button>
+      <div class="info"><b id="conv-title"></b><span class="small muted" id="conv-sub"></span></div>
+      <a class="btn sm" id="new-job-btn" href="#">{{ icon('plus') }} Ish yaratish</a>
+      <button class="btn sm icon ghost" id="hide-btn" title="Bu chatni ro'yxatdan olib tashlash">{{ icon('eye-off') }}</button>
+    </div>
+    <div class="msgs hidden" id="msgs"></div>
+    <form class="composer hidden" id="composer">
+      <label class="btn icon ghost" title="Fayl biriktirish">{{ icon('clip') }}<input type="file" id="file-input" hidden></label>
+      <div style="flex:1;display:flex;flex-direction:column;min-width:0">
+        <div class="att hidden" id="att"></div>
+        <textarea class="input" id="msg-text" placeholder="Xabar yozing..." title="Enter — yuborish, Shift+Enter — yangi qator" rows="1"></textarea>
+      </div>
+      <button class="btn primary icon" id="send-btn" title="Yuborish">{{ icon('send') }}</button>
+    </form>
+  </div>
+</div>
+
+<dialog class="modal" id="attach-dlg">
+  <form method="dialog">
+    <div class="card-h"><h2>Faylni ishga biriktirish</h2></div>
+    <div class="card-b">
+      <div class="field"><label>Ish raqami</label><input class="input" id="attach-job" placeholder="#123" inputmode="numeric" required></div>
+      <div class="field"><label>Fayl turi</label>
+        <select class="input" id="attach-kind">{% for k, l in file_kinds.items() %}<option value="{{ k }}" {{ 'selected' if k == 'logo' }}>{{ l }}</option>{% endfor %}</select>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button class="btn" value="cancel">Bekor qilish</button>
+        <button class="btn primary" value="ok" id="attach-ok">Biriktirish</button>
+      </div>
+    </div>
+  </form>
+</dialog>
+{% endblock %}
+{% block scripts %}<script>window.DN_MAX_MB = {{ max_mb }};</script><script src="/static/js/inbox.js?v=1"></script>{% endblock %}

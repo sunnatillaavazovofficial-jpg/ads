@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% from "partials/macros.html" import icon, avatar with context %}
+{% block title %}Kanban doska{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>Kanban doska</h1>
+  <form method="get" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+    <input class="input sm" name="q" value="{{ f.get('q', '') }}" placeholder="Qidirish..." style="width:180px">
+    <select class="input sm" name="designer" onchange="this.form.submit()" style="width:auto">
+      <option value="">Barcha dizaynerlar</option>
+      <option value="none" {{ 'selected' if f.get('designer') == 'none' }}>— Tayinlanmagan</option>
+      {% for d in designers %}<option value="{{ d.id }}" {{ 'selected' if f.get('designer') == d.id|string }}>{{ d.display_name }}</option>{% endfor %}
+    </select>
+    <select class="input sm" name="manager" onchange="this.form.submit()" style="width:auto">
+      <option value="">Barcha menejerlar</option>
+      {% for m in managers %}<option value="{{ m.id }}" {{ 'selected' if f.get('manager') == m.id|string }}>{{ m.display_name }}</option>{% endfor %}
+    </select>
+    <label class="check small"><input type="checkbox" name="mine" value="1" {{ 'checked' if f.get('mine') }} onchange="this.form.submit()"> Meniki</label>
+    <label class="check small"><input type="checkbox" name="closed" value="1" {{ 'checked' if show_closed }} onchange="this.form.submit()"> Yakunlanganlar</label>
+  </form>
+  <a class="btn primary" href="/jobs/new">{{ icon('plus') }} Yangi ish</a>
+  <div class="sub small">Kartochkani sichqoncha bilan boshqa ustunga sudrab o'tkazsangiz, ish holati o'zgaradi.</div>
+</div>
+
+<div class="board" id="board">
+  {% for code in columns %}
+  {% set items = by_status.get(code, []) %}
+  <section class="col" data-status="{{ code }}" style="--c: {{ STATUS_COLORS[code] }}">
+    <div class="col-h"><span class="cdot"></span>{{ STATUS_LABELS[code] }}<span class="n">{{ items|length }}</span></div>
+    <div class="col-b">
+      {% for j in items %}
+      <a class="kcard" href="/jobs/{{ j.id }}" draggable="true" data-id="{{ j.id }}">
+        {% set c = j.cover %}
+        {% if c %}<img class="cover" src="/files/{{ c.id }}" alt="" loading="lazy" draggable="false">{% endif %}
+        <div class="meta"><span>#{{ j.id }}</span>
+          {% if j.priority == 'urgent' %}<span class="badge urgent">🔥</span>{% endif %}
+          {% if j.due_date %}<span class="badge {{ 'late' if j.is_overdue }}">⏰ {{ j.due_date|d }}</span>{% endif %}
+        </div>
+        <div class="t">{{ j.title }}</div>
+        <div class="meta">
+          {% if j.client_name %}<span>👤 {{ j.client_name }}</span>{% endif %}
+          {% if j.size_text %}<span>📐 {{ j.size_text }}</span>{% endif %}
+        </div>
+        <div class="foot">
+          {% if j.designer %}{{ avatar(j.designer) }}<span class="small">{{ j.designer.display_name }}</span>{% else %}<span class="small muted">Dizayner yo'q</span>{% endif %}
+          <span style="margin-left:auto" class="small muted">{% if j.files %}📎{{ j.files|length }}{% endif %}{% if j.items %} · {{ j.total|num }}{% endif %}</span>
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+  </section>
+  {% endfor %}
+</div>
+{% endblock %}
+{% block scripts %}<script src="/static/js/board.js?v=1"></script>{% endblock %}

@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% from "partials/macros.html" import icon, avatar with context %}
+{% block title %}Profil{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Profil</h1></div>
+<div class="grid g2" style="align-items:start">
+  <form class="card" method="post" action="/profile">
+    <div class="card-h">{{ avatar(user, 'lg') }}<h2>{{ user.display_name }} <span class="muted small">({{ ROLES.get(user.role) }} · {{ user.username }})</span></h2></div>
+    <div class="card-b form-grid">
+      <div class="field c6"><label>To'liq ismi</label><input class="input" name="full_name" value="{{ user.full_name }}"></div>
+      <div class="field c6"><label>Telefon</label><input class="input" name="phone" value="{{ user.phone or '' }}"></div>
+      <label class="check c12"><input type="checkbox" name="notify" value="1" {{ 'checked' if user.notify }}> Telegram bot orqali bildirishnomalar olish</label>
+      <div class="c12 label" style="margin-top:6px">Parolni o'zgartirish</div>
+      <div class="field c6"><label>Eski parol</label><input class="input" type="password" name="old_password" autocomplete="current-password"></div>
+      <div class="field c6"><label>Yangi parol</label><input class="input" type="password" name="new_password" autocomplete="new-password" minlength="6"></div>
+      <div class="c12"><button class="btn primary">Saqlash</button></div>
+    </div>
+  </form>
+
+  <div class="card">
+    <div class="card-h"><h2>🤖 Telegram bot</h2></div>
+    <div class="card-b" style="display:flex;flex-direction:column;gap:12px">
+      {% if not bot_username %}
+        <div class="alert warn">Bot sozlanmagan. Administrator <code>.env</code> faylida <code>BOT_TOKEN</code> ni ko'rsatishi kerak.</div>
+      {% elif user.telegram_id %}
+        <div class="alert ok">✓ Telegram ulangan{% if user.telegram_username %}: @{{ user.telegram_username }}{% endif %}</div>
+        <p class="muted" style="margin:0">Bot: <a href="https://t.me/{{ bot_username }}" target="_blank">@{{ bot_username }}</a>. Bot orqali yangi ish kiritish, o'z ishlaringizni ko'rish va holatini o'zgartirish mumkin.</p>
+        <form method="post" action="/profile/telegram-unlink"><button class="btn danger sm">Uzish</button></form>
+      {% else %}
+        <p style="margin:0">Telegramni ulasangiz:</p>
+        <ul style="margin:0;padding-left:18px" class="muted">
+          <li>sizga biriktirilgan yangi ishlar haqida darhol xabar keladi;</li>
+          <li>bot orqali yangi ish kiritasiz (rasm va fayllar bilan);</li>
+          <li>ish holatini botdan o'zgartirasiz.</li>
+        </ul>
+        {% if link %}
+          <a class="btn primary" href="{{ link }}" target="_blank">{{ icon('send') }} Telegramda ochish va ulash</a>
+          <p class="hint" style="margin:0">Havola bir martalik. Telegram ochilgach <b>START</b> tugmasini bosing, so'ng bu sahifani yangilang.</p>
+        {% else %}
+          <form method="post" action="/profile/telegram-link"><button class="btn primary">{{ icon('link') }} Telegramni ulash</button></form>
+        {% endif %}
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

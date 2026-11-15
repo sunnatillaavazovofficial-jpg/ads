@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% from "partials/macros.html" import icon with context %}
+{% block title %}Narxlar{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>Narxlar ro'yxati</h1>
+  <div class="sub">Bu yerdagi xizmat va materiallar ish narxini hisoblashda tanlanadi.</div>
+</div>
+{% set can = user.can_manage %}
+<div class="card">
+  <div class="table-wrap">
+  <table class="table">
+    <thead><tr><th style="width:60px">Tartib</th><th>Nomi</th><th>Birlik</th><th>Narxi ({{ CURRENCY }})</th><th>Izoh</th><th>Faol</th>{% if can %}<th></th>{% endif %}</tr></thead>
+    <tbody>
+    {% for it in items %}
+      {% if can %}
+      <tr>
+        <td><input form="p{{ it.id }}" class="input sm" name="position" value="{{ it.position }}" style="width:56px"></td>
+        <td><input form="p{{ it.id }}" class="input sm" name="name" value="{{ it.name }}" required></td>
+        <td><select form="p{{ it.id }}" class="input sm" name="unit">{% for u in units %}<option {{ 'selected' if u == it.unit }}>{{ u }}</option>{% endfor %}{% if it.unit not in units %}<option selected>{{ it.unit }}</option>{% endif %}</select></td>
+        <td><input form="p{{ it.id }}" class="input sm" name="price" value="{{ it.price|num }}" inputmode="decimal" style="min-width:110px"></td>
+        <td><input form="p{{ it.id }}" class="input sm" name="note" value="{{ it.note }}"></td>
+        <td><input form="p{{ it.id }}" type="checkbox" name="is_active" value="1" {{ 'checked' if it.is_active }}></td>
+        <td class="nowrap">
+          <form id="p{{ it.id }}" method="post" action="/prices/{{ it.id }}" style="display:inline"><button class="btn sm">Saqlash</button></form>
+          <form method="post" action="/prices/{{ it.id }}/delete" style="display:inline" onsubmit="return confirm('O\'chirasizmi?')"><button class="btn sm icon danger" title="O'chirish">{{ icon('trash') }}</button></form>
+        </td>
+      </tr>
+      {% else %}
+      <tr style="{{ 'opacity:.5' if not it.is_active }}"><td>{{ it.position }}</td><td>{{ it.name }}</td><td>{{ it.unit }}</td><td><b>{{ it.price|num }}</b></td><td class="muted">{{ it.note }}</td><td>{{ '✓' if it.is_active else '—' }}</td></tr>
+      {% endif %}
+    {% endfor %}
+    </tbody>
+    {% if can %}
+    <tfoot>
+      <tr>
+        <td><input form="pnew" class="input sm" name="position" value="{{ items|length }}" style="width:56px"></td>
+        <td><input form="pnew" class="input sm" name="name" placeholder="Yangi xizmat yoki material" required></td>
+        <td><select form="pnew" class="input sm" name="unit">{% for u in units %}<option>{{ u }}</option>{% endfor %}</select></td>
+        <td><input form="pnew" class="input sm" name="price" placeholder="0" inputmode="decimal"></td>
+        <td><input form="pnew" class="input sm" name="note" placeholder="Izoh"></td>
+        <td></td>
+        <td><form id="pnew" method="post" action="/prices"><button class="btn sm primary">{{ icon('plus') }} Qo'shish</button></form></td>
+      </tr>
+    </tfoot>
+    {% endif %}
+  </table>
+  </div>
+</div>
+{% endblock %}

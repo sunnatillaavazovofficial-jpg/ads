@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% from "partials/macros.html" import icon, status_badge, person, avatar, job_flags with context %}
+{% block title %}Bosh sahifa{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>Bosh sahifa</h1>
+  <a class="btn" href="/jobs/board">{{ icon('board') }} Kanban</a>
+  <a class="btn primary" href="/jobs/new">{{ icon('plus') }} Yangi ish</a>
+</div>
+
+<div class="grid g4">
+  <a class="card stat" href="/jobs?status=active"><span class="k">Faol ishlar</span><span class="v">{{ active_total }}</span></a>
+  <div class="card stat"><span class="k">Bugun qo'shilgan</span><span class="v">{{ created_today }}</span></div>
+  <a class="card stat" href="/jobs?status=overdue"><span class="k">Muddati o'tgan</span><span class="v {{ 'red' if overdue }}">{{ overdue|length }}</span></a>
+  <a class="card stat" href="/jobs?status=done"><span class="k">Shu oy bajarildi</span><span class="v green">{{ done_month }}</span></a>
+</div>
+
+<div class="split mt">
+  <div>
+    <div class="card">
+      <div class="card-h"><h2>Jarayon bo'yicha</h2><a class="small" href="/jobs?status=all">Barchasi</a></div>
+      <div class="card-b">
+        {% set mx = (status_counts|map(attribute=1)|max) or 1 %}
+        <div class="pipeline">
+          {% for code, n in status_counts %}
+          <a class="pipe-row" href="/jobs?status={{ code }}">
+            <span>{{ status_badge(code) }}</span>
+            <span class="bar"><i style="width: {{ (n / mx * 100)|round(1) }}%; background: {{ STATUS_COLORS[code] }}"></i></span>
+            <b class="right">{{ n }}</b>
+          </a>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-h"><h2>Dizaynerlar bandligi</h2></div>
+      {% if workload %}
+      <div class="table-wrap">
+      <table class="table">
+        <thead><tr><th>Dizayner</th><th class="right">Faol</th><th class="right">Dizaynda</th><th class="right">Tasdiqda</th><th class="right">Kechikkan</th><th class="right">Oy davomida bajardi</th></tr></thead>
+        <tbody>
+        {% for w in workload %}
+          <tr>
+            <td><a href="/jobs?designer={{ w.user.id }}" style="color:inherit">{{ person(w.user) }}</a></td>
+            <td class="right"><b>{{ w.active }}</b></td>
+            <td class="right">{{ w.design }}</td>
+            <td class="right">{{ w.review }}</td>
+            <td class="right">{% if w.overdue %}<span class="badge late">{{ w.overdue }}</span>{% else %}0{% endif %}</td>
+            <td class="right">{{ w.done }}</td>
+          </tr>
+        {% endfor %}
+        {% if unassigned %}
+          <tr><td><a href="/jobs?designer=none" class="muted">Dizayner tayinlanmagan</a></td><td class="right"><b>{{ unassigned|length }}</b></td><td colspan="4"></td></tr>
+        {% endif %}
+        </tbody>
+      </table>
+      </div>
+      {% else %}
+      <div class="empty">Hali dizaynerlar qo'shilmagan. {% if user.is_admin %}<a href="/users/new">Xodim qo'shish</a>{% endif %}</div>
+      {% endif %}
+    </div>
+
+    {% if overdue or due_soon or urgent %}
+    <div class="card">
+      <div class="card-h"><h2>Diqqat talab qiladi</h2></div>
+      <ul class="list-plain">
+        {% for j in (overdue + urgent + due_soon)|unique(attribute='id') %}
+        <li>
+          <a class="row-link" href="/jobs/{{ j.id }}" style="flex:1;min-width:0">#{{ j.id }} {{ j.title }}</a>
+          {{ job_flags(j) }}
+          {% if j.due_date and not j.is_overdue %}<span class="badge">⏰ {{ j.due_date|d }}</span>{% endif %}
+          {{ status_badge(j.status) }}
+          {{ avatar(j.designer) }}
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+  </div>
+
+  <div>
+    <div class="card">
+      <div class="card-h"><h2>Moliya (shu oy)</h2></div>
+      <div class="card-b">
+        <dl class="kv">
+          <dt>Jami summa</dt><dd><b>{{ finance.total|money }}</b></dd>
+          <dt>To'langan</dt><dd style="color:var(--ok)">{{ finance.paid|money }}</dd>
+          <dt>Qoldiq</dt><dd style="color:var(--danger)">{{ finance.debt|money }}</dd>
+          <dt>Faol ishlar qarzi</dt><dd>{{ all_debt|money }}</dd>
+        </dl>
+      </div>
+    </div>
+
+    {% if my_jobs %}
+    <div class="card">
+      <div class="card-h"><h2>Mening ishlarim</h2><a class="small" href="/jobs?mine=1">Barchasi</a></div>
+      <ul class="list-plain">
+        {% for j in my_jobs[:8] %}
+        <li><a class="row-link" href="/jobs/{{ j.id }}" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">#{{ j.id }} {{ j.title }}</a>{{ status_badge(j.status) }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+
+    <div class="card">
+      <div class="card-h"><h2>So'nggi harakatlar</h2></div>
+      {% if events %}
+      <ul class="timeline">
+        {% for e in events %}
+        <li>
+          {{ avatar(e.user) if e.user else '<span class="ev-ico">🤖</span>'|safe }}
+          <div class="body">
+            <div class="small"><b>{{ e.user.display_name if e.user else 'Tizim' }}</b> · <a href="/jobs/{{ e.job_id }}">#{{ e.job_id }} {{ e.job.title if e.job else '' }}</a></div>
+            <div class="txt small">{{ e.text[:160] }}</div>
+            <div class="small muted">{{ e.created_at|ago }}</div>
+          </div>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <div class="empty">Hali harakatlar yo'q</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

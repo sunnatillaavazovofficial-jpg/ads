@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% from "partials/macros.html" import icon, status_badge, person, avatar, job_flags, thumb with context %}
+{% block title %}Ishlar{% endblock %}
+{% block content %}
+{% set st = f.get('status', 'active') %}
+<div class="page-head">
+  <h1>Ishlar <span class="muted" style="font-weight:500">({{ total }})</span></h1>
+  <a class="btn" href="/jobs/board">{{ icon('board') }} Kanban</a>
+  <a class="btn primary" href="/jobs/new">{{ icon('plus') }} Yangi ish</a>
+</div>
+
+<div class="card">
+  <div class="filters" style="padding-bottom:8px">
+    <div class="tabs">
+      <a href="?status=active" class="{{ 'active' if st == 'active' }}">Faol</a>
+      <a href="?status=overdue" class="{{ 'active' if st == 'overdue' }}">⏰ Kechikkan</a>
+      {% for code, label, color in STATUSES %}
+      <a href="?status={{ code }}" class="{{ 'active' if st == code }}">{{ label }}</a>
+      {% endfor %}
+      <a href="?status=all" class="{{ 'active' if st == 'all' }}">Barchasi</a>
+    </div>
+  </div>
+  <form class="filters" method="get">
+    <input type="hidden" name="status" value="{{ st }}">
+    <input class="input search" name="q" value="{{ f.get('q', '') }}" placeholder="Qidirish: nomi, mijoz, telefon, manzil yoki #raqam">
+    <select class="input" name="designer" onchange="this.form.submit()">
+      <option value="">Barcha dizaynerlar</option>
+      <option value="none" {{ 'selected' if f.get('designer') == 'none' }}>— Tayinlanmagan</option>
+      {% for d in designers %}<option value="{{ d.id }}" {{ 'selected' if f.get('designer') == d.id|string }}>{{ d.display_name }}</option>{% endfor %}
+    </select>
+    <select class="input" name="manager" onchange="this.form.submit()">
+      <option value="">Barcha menejerlar</option>
+      {% for m in managers %}<option value="{{ m.id }}" {{ 'selected' if f.get('manager') == m.id|string }}>{{ m.display_name }}</option>{% endfor %}
+    </select>
+    <select class="input" name="sort" onchange="this.form.submit()">
+      <option value="new" {{ 'selected' if f.get('sort', 'new') == 'new' }}>Avval yangilari</option>
+      <option value="old" {{ 'selected' if f.get('sort') == 'old' }}>Avval eskilari</option>
+      <option value="due" {{ 'selected' if f.get('sort') == 'due' }}>Muddat bo'yicha</option>
+      <option value="updated" {{ 'selected' if f.get('sort') == 'updated' }}>Oxirgi o'zgargan</option>
+    </select>
+    <label class="check"><input type="checkbox" name="mine" value="1" {{ 'checked' if f.get('mine') }} onchange="this.form.submit()"> Mening ishlarim</label>
+    <button class="btn">{{ icon('search') }} Qidirish</button>
+  </form>
+
+  {% if jobs %}
+  <div class="table-wrap">
+  <table class="table">
+    <thead>
+      <tr><th></th><th>Ish</th><th>Mijoz</th><th>O'lcham</th><th>Holat</th><th>Menejer</th><th>Dizayner</th><th>Muddat</th><th class="right">Summa</th></tr>
+    </thead>
+    <tbody>
+    {% for j in jobs %}
+      <tr>
+        <td style="width:56px"><a href="/jobs/{{ j.id }}">{{ thumb(j) }}</a></td>
+        <td style="min-width:200px">
+          <a class="row-link" href="/jobs/{{ j.id }}">#{{ j.id }} · {{ j.title }}</a>
+          <div class="small muted">{{ j.created_at|dt }}{% if j.address %} · {{ j.address[:40] }}{% endif %}</div>
+          {% if j.priority == 'urgent' or j.is_overdue %}<div style="margin-top:3px">{{ job_flags(j) }}</div>{% endif %}
+        </td>
+        <td style="min-width:140px">{{ j.client_name or '—' }}<div class="small">{{ j.client_contact|contact }}</div></td>
+        <td class="nowrap">{{ j.size_text or '—' }}{% if j.area_m2 %}<div class="small muted">{{ j.area_m2|num }} m²</div>{% endif %}</td>
+        <td>{{ status_badge(j.status) }}</td>
+        <td class="nowrap">{{ person(j.manager) }}</td>
+        <td class="nowrap">{{ person(j.designer, 'Tayinlanmagan') }}</td>
+        <td class="nowrap">{% if j.due_date %}<span style="{{ 'color:var(--danger);font-weight:600' if j.is_overdue }}">{{ j.due_date|d }}</span>{% else %}<span class="muted">—</span>{% endif %}</td>
+        <td class="right nowrap">{% if j.items %}<b>{{ j.total|num }}</b>{% if j.debt > 0 and j.paid %}<div class="small" style="color:var(--danger)">qoldiq {{ j.debt|num }}</div>{% elif j.paid and j.debt <= 0 %}<div class="small" style="color:var(--ok)">to'langan</div>{% endif %}{% else %}<span class="muted">—</span>{% endif %}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% if pages > 1 %}
+  <div class="pager">
+    {% set qs = request.query_params %}
+    {% for p in range(1, pages + 1) %}
+      {% if p == page %}<span class="btn sm primary">{{ p }}</span>
+      {% elif p <= 2 or p > pages - 2 or (p - page)|abs <= 2 %}
+        <a class="btn sm" href="?{% for k, v in qs.items() if k != 'page' %}{{ k }}={{ v|urlencode }}&{% endfor %}page={{ p }}">{{ p }}</a>
+      {% elif (p - page)|abs == 3 %}<span class="muted">…</span>{% endif %}
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% else %}
+  <div class="empty"><div class="big">🗂</div>Ishlar topilmadi.<br><a href="/jobs/new">Yangi ish qo'shish</a></div>
+  {% endif %}
+</div>
+{% endblock %}

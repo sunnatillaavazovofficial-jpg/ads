@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% from "partials/macros.html" import icon with context %}
+{% block title %}Telegram akkauntlar{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>Telegram akkauntlar</h1>
+  <a class="btn" href="/inbox">{{ icon('chat') }} Chatlarga o'tish</a>
+  <div class="sub">Bir nechta (masalan 10 ta) Telegram akkauntni ulang, har biridan kerakli chatlarni saralang — ular hammasi <a href="/inbox">bitta joyda</a> ko'rinadi.</div>
+</div>
+
+{% if not enabled %}
+<div class="alert warn mb">
+  Telegram akkauntlarni ulash uchun serverdagi <code>.env</code> faylida <code>TG_API_ID</code> va <code>TG_API_HASH</code> ko'rsatilishi kerak.
+  Ularni <a href="https://my.telegram.org/apps" target="_blank" rel="noopener">my.telegram.org</a> → «API development tools» bo'limidan bepul olasiz.
+</div>
+{% endif %}
+
+<div class="split">
+  <div class="card">
+    <div class="card-h"><h2>Ulangan akkauntlar ({{ accounts|length }})</h2></div>
+    {% if accounts %}
+    <ul class="list-plain">
+      {% for a in accounts %}
+      <li style="flex-direction:column;align-items:stretch;gap:10px">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <span class="avatar lg" style="background: {{ a.color }}">{{ (a.label or a.first_name or '?')[:1]|upper }}</span>
+          <div style="flex:1;min-width:160px">
+            <b>{{ a.name }}</b>
+            <div class="small muted">{{ a.phone }}{% if a.username %} · @{{ a.username }}{% endif %} · {{ counts.get(a.id, 0) }} ta chat saralangan</div>
+          </div>
+          {% if online[a.id] %}<span class="badge okb">● ulangan</span>
+          {% elif a.state == 'unauthorized' %}<span class="badge late">sessiya tugagan</span>
+          {% elif a.state == 'error' %}<span class="badge late" title="{{ a.last_error }}">xato</span>
+          {% else %}<span class="badge">o'chiq</span>{% endif %}
+          <a class="btn sm primary" href="/tg/accounts/{{ a.id }}/chats">Chatlarni saralash</a>
+        </div>
+        {% if a.last_error and not online[a.id] %}<div class="small" style="color:var(--danger)">{{ a.last_error }}</div>{% endif %}
+        <details>
+          <summary class="small muted" style="cursor:pointer">Sozlamalar</summary>
+          <form method="post" action="/tg/accounts/{{ a.id }}/settings" class="form-grid" style="margin-top:10px">
+            <div class="field c6"><label>Nomi (yorliq)</label><input class="input sm" name="label" value="{{ a.label }}" placeholder="Masalan: Asosiy, Sotuv-2"></div>
+            <div class="field c6"><label>Rangi</label>
+              <div style="display:flex;gap:6px;flex-wrap:wrap">
+                {% for c in colors %}<label style="cursor:pointer"><input type="radio" name="color" value="{{ c }}" {{ 'checked' if a.color == c }} style="display:none" onchange="this.form.querySelectorAll('.sw').forEach(s=>s.style.outline='');this.nextElementSibling.style.outline='2px solid var(--text)'"><span class="sw" style="display:inline-block;width:22px;height:22px;border-radius:50%;background:{{ c }};outline-offset:2px;{{ 'outline:2px solid var(--text)' if a.color == c }}"></span></label>{% endfor %}
+              </div>
+            </div>
+            <label class="check c12 small"><input type="checkbox" name="auto_add_private" value="1" {{ 'checked' if a.auto_add_private }}> Yangi yozgan har bir odamning shaxsiy chatini avtomatik qo'shish (yangi mijozlar o'tkazib yuborilmasligi uchun)</label>
+            <div class="c12" style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="btn sm">Saqlash</button>
+              <button class="btn sm" formaction="/tg/accounts/{{ a.id }}/restart">{{ icon('refresh') }} Qayta ulash</button>
+            </div>
+          </form>
+          <form method="post" action="/tg/accounts/{{ a.id }}/delete" style="margin-top:10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap" onsubmit="return confirm('Akkauntni tizimdan o\'chirasizmi? Saralangan chatlar va xabarlar tarixi ham o\'chadi.')">
+            <label class="check small"><input type="checkbox" name="logout" value="1" checked> Telegramdagi sessiyani ham yopish</label>
+            <button class="btn sm danger">{{ icon('trash') }} Akkauntni o'chirish</button>
+          </form>
+        </details>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <div class="empty"><div class="big">📱</div>Hali akkaunt ulanmagan</div>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <div class="card-h"><h2>Yangi akkaunt ulash</h2></div>
+    <form class="card-b" method="post" action="/tg/accounts/add" style="display:flex;flex-direction:column;gap:12px">
+      <div class="field">
+        <label class="req">Telefon raqam</label>
+        <input class="input" name="phone" placeholder="+998 90 123 45 67" required {{ 'disabled' if not enabled }}>
+      </div>
+      <button class="btn primary" {{ 'disabled' if not enabled }}>{{ icon('send') }} Kod yuborish</button>
+      <p class="hint" style="margin:0">Telegram ilovangizga tasdiqlash kodi keladi. Uni keyingi sahifada kiritasiz. Ikki bosqichli himoya (parol) yoqilgan bo'lsa, parol ham so'raladi.</p>
+      <p class="hint" style="margin:0">⚠️ Kodni hech kimga yubormang — Telegram boshqa chatga yuborilgan kodni bloklaydi.</p>
+    </form>
+  </div>
+</div>
+{% endblock %}

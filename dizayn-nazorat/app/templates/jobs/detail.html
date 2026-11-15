@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+{% from "partials/macros.html" import icon, status_badge, person, avatar, job_flags with context %}
+{% block title %}#{{ job.id }} {{ job.title }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <a class="btn icon ghost" href="/jobs" title="Orqaga">{{ icon('back') }}</a>
+  <h1>#{{ job.id }} · {{ job.title }}</h1>
+  <a class="btn" href="/jobs/{{ job.id }}/edit">{{ icon('edit') }} Tahrirlash</a>
+  <form method="post" action="/jobs/{{ job.id }}/delete" onsubmit="return confirm('#{{ job.id }} ishni butunlay o\'chirasizmi? Barcha fayllari ham o\'chadi.')">
+    <button class="btn danger">{{ icon('trash') }} O'chirish</button>
+  </form>
+  <div class="sub" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+    {{ status_badge(job.status) }} {{ job_flags(job) }}
+    <span class="small">Yaratildi: {{ job.created_at|dt }}{% if job.created_by %} · {{ job.created_by.display_name }}{% endif %} · {{ C.SOURCES.get(job.source, job.source) }}</span>
+  </div>
+</div>
+
+<div class="split">
+  <div>
+    <div class="card">
+      <div class="card-h"><h2>Ma'lumotlar</h2></div>
+      <div class="card-b">
+        <dl class="kv">
+          <dt>Mijoz</dt><dd>{{ job.client_name or '—' }}</dd>
+          <dt>Aloqa</dt><dd>{{ job.client_contact|contact or '—' }}
+            {% if tg_chat %} · <a href="/inbox?chat={{ tg_chat.id }}">💬 Telegram chatni ochish</a>{% endif %}</dd>
+          <dt>Manzil / joy</dt><dd>{{ job.address or '—' }}</dd>
+          <dt>O'lcham</dt><dd>{{ job.size_text or '—' }}{% if job.area_m2 %} <span class="muted">= {{ job.area_m2|num }} m²</span>{% endif %}</dd>
+          <dt>Muddat</dt><dd>{% if job.due_date %}<span style="{{ 'color:var(--danger);font-weight:600' if job.is_overdue }}">{{ job.due_date|d }}</span>{% else %}—{% endif %}</dd>
+          <dt>Menejer</dt><dd>{{ person(job.manager) }}</dd>
+          <dt>Dizayner</dt><dd>{{ person(job.designer, 'Tayinlanmagan') }}</dd>
+          <dt>Holat o'zgargan</dt><dd>{{ job.status_changed_at|ago }}</dd>
+        </dl>
+        {% if job.comment %}
+        <div class="label" style="margin:16px 0 6px">Izoh</div>
+        <div class="comment-box">{{ job.comment }}</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-h"><h2>Fayllar ({{ job.files|length }})</h2>
+        {% if job.files %}<a class="btn sm" href="/jobs/{{ job.id }}/files.zip">{{ icon('download') }} Hammasini yuklash (ZIP)</a>{% endif %}
+      </div>
+      <div class="card-b">
+        {% for kind, label in FILE_KINDS.items() %}
+          {% set fl = files_by_kind[kind] %}
+          <div class="label" style="margin:{{ '0' if loop.first else '18px' }} 0 8px">{{ label }} ({{ fl|length }})</div>
+          {% if fl %}
+          <div class="files">
+            {% for f in fl %}
+            <div class="file">
+              <a class="prev" href="/files/{{ f.id }}" target="_blank" {% if f.is_image %}data-lightbox{% endif %}>
+                {% if f.is_image %}<img src="/files/{{ f.id }}" alt="{{ f.original_name }}" loading="lazy">{% else %}<span class="ext">{{ f.ext }}</span>{% endif %}
+              </a>
+              <div class="nm" title="{{ f.original_name }}">{{ f.original_name }}</div>
+              <div class="sz">{{ f.size|filesize }}{% if f.uploaded_by %} · {{ f.uploaded_by.display_name }}{% endif %}</div>
+              <div class="acts">
+                <a class="btn sm icon" href="/files/{{ f.id }}?download=1" title="Yuklab olish">{{ icon('download') }}</a>
+                <form method="post" action="/files/{{ f.id }}/delete" onsubmit="return confirm('Faylni o\'chirasizmi?')"><button class="btn sm icon" title="O'chirish">{{ icon('trash') }}</button></form>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+          {% else %}
+          <div class="small muted">Fayl yo'q</div>
+          {% endif %}
+        {% endfor %}
+
+        <form method="post" action="/jobs/{{ job.id }}/comment" enctype="multipart/form-data" class="mt" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;border-top:1px solid var(--border);padding-top:14px">
+          <select class="input sm" name="kind" style="width:auto">
+            {% for k, l in FILE_KINDS.items() %}<option value="{{ k }}" {{ 'selected' if k == 'design' }}>{{ l }}</option>{% endfor %}
+          </select>
+          <input type="file" name="files" multiple required class="small" style="flex:1;min-width:180px">
+          <button class="btn sm primary">{{ icon('upload') }} Yuklash</button>
+        </form>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-h"><h2>{{ icon('calc') }} Narx</h2><a class="btn sm" href="/jobs/{{ job.id }}/edit#items">{{ icon('edit') }} Hisoblash</a></div>
+      <div class="card-b">
+        {% if job.items %}
+        <div class="table-wrap">
+        <table class="table">
+          <thead><tr><th>Xizmat / material</th><th class="right">Miqdor</th><th class="right">Narxi</th><th class="right">Summa</th></tr></thead>
+          <tbody>
+          {% for it in job.items %}
+            <tr><td>{{ it.name }}</td><td class="right nowrap">{{ it.quantity|num }} {{ it.unit }}</td><td class="right nowrap">{{ it.unit_price|num }}</td><td class="right nowrap"><b>{{ it.total|num }}</b></td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+        </div>
+        <div class="totals">
+          <span class="muted">Jami:</span><b class="right">{{ job.subtotal|money }}</b>
+          {% if job.discount %}<span class="muted">Chegirma:</span><span class="right">− {{ job.discount|money }}</span>{% endif %}
+          <span class="grand">Umumiy summa:</span><span class="grand right">{{ job.total|money }}</span>
+          <span class="muted">To'langan:</span><span class="right" style="color:var(--ok)">{{ job.paid|money }}</span>
+          <span class="muted">Qoldiq:</span><span class="right {{ 'debt' if job.debt > 0 }}">{{ job.debt|money }}</span>
+        </div>
+        {% else %}
+        <div class="small muted">Narx hali hisoblanmagan. <a href="/jobs/{{ job.id }}/edit">Hisoblash</a></div>
+        {% endif %}
+        <form method="post" action="/jobs/{{ job.id }}/payment" style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px;flex-wrap:wrap">
+          <input class="input sm" name="amount" inputmode="decimal" placeholder="To'lov summasi" style="width:170px" required>
+          <button class="btn sm">+ To'lov qo'shish</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="card">
+      <div class="card-h"><h2>Holat (bosqich)</h2></div>
+      <div class="card-b">
+        <form method="post" action="/jobs/{{ job.id }}/status" class="status-btns">
+          {% for code, label, color in STATUSES %}
+          <button name="status" value="{{ code }}" class="{{ 'cur' if job.status == code }}" style="--c: {{ color }}"><span class="dot"></span>{{ label }}</button>
+          {% endfor %}
+        </form>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-h"><h2>Mas'ullar</h2></div>
+      <form class="card-b" method="post" action="/jobs/{{ job.id }}/assign" style="display:flex;flex-direction:column;gap:12px">
+        <div class="field">
+          <label>Menejer</label>
+          <select class="input" name="manager_id">
+            <option value="">— Tanlanmagan</option>
+            {% for m in managers %}<option value="{{ m.id }}" {{ 'selected' if job.manager_id == m.id }}>{{ m.display_name }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="field">
+          <label>Dizayner</label>
+          <select class="input" name="designer_id">
+            <option value="">— Tayinlanmagan</option>
+            {% for d in designers %}<option value="{{ d.id }}" {{ 'selected' if job.designer_id == d.id }}>{{ d.display_name }}</option>{% endfor %}
+          </select>
+        </div>
+        <button class="btn">Saqlash</button>
+      </form>
+    </div>
+
+    <div class="card" id="activity">
+      <div class="card-h"><h2>Izohlar va tarix</h2></div>
+      <form class="card-b" method="post" action="/jobs/{{ job.id }}/comment" style="display:flex;flex-direction:column;gap:8px;border-bottom:1px solid var(--border)">
+        <textarea class="input" name="text" rows="2" placeholder="Izoh yozing (menejer va dizaynerga Telegramda boradi)..." required style="min-height:64px"></textarea>
+        <button class="btn sm primary" style="align-self:flex-end">{{ icon('send') }} Yuborish</button>
+      </form>
+      <ul class="timeline">
+        {% set EV = {'create': '✨', 'status': '🔄', 'assign': '👤', 'edit': '✏️', 'file': '📎', 'price': '💰'} %}
+        {% for e in events %}
+        <li class="{{ e.kind }}">
+          {% if e.kind == 'comment' and e.user %}{{ avatar(e.user) }}{% else %}<span class="ev-ico">{{ EV.get(e.kind, '•') }}</span>{% endif %}
+          <div class="body">
+            <div class="small"><b>{{ e.user.display_name if e.user else 'Tizim' }}</b> <span class="muted">· {{ e.created_at|dt }}</span></div>
+            <div class="txt {{ '' if e.kind == 'comment' else 'small' }}">{{ e.text }}</div>
+          </div>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+</div>
+{% endblock %}

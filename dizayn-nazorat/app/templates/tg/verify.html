@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% from "partials/macros.html" import icon with context %}
+{% block title %}Akkauntni tasdiqlash{% endblock %}
+{% block content %}
+<div class="page-head">
+  <a class="btn icon ghost" href="/tg/accounts">{{ icon('back') }}</a>
+  <h1>Akkauntni tasdiqlash</h1>
+</div>
+<form class="card" method="post" action="/tg/accounts/verify" style="max-width:440px">
+  <input type="hidden" name="token" value="{{ token }}">
+  <div class="card-b" style="display:flex;flex-direction:column;gap:14px">
+    <div class="muted">Raqam: <b style="color:var(--text)">{{ phone }}</b></div>
+    {% if need_password %}
+    <div class="field">
+      <label class="req">Ikki bosqichli himoya paroli</label>
+      <input class="input" type="password" name="password" required autofocus autocomplete="off">
+      <span class="hint">Telegram → Sozlamalar → Maxfiylik → Ikki bosqichli tekshiruv paroli.</span>
+    </div>
+    {% else %}
+    <div class="field">
+      <label class="req">Tasdiqlash kodi</label>
+      <input class="input" name="code" inputmode="numeric" autocomplete="one-time-code" required autofocus placeholder="12345" style="font-size:20px;letter-spacing:.3em;height:46px">
+      <span class="hint">Kod Telegram ilovasiga («Telegram» rasmiy chatiga) keldi.</span>
+    </div>
+    {% endif %}
+    <button class="btn primary">Tasdiqlash</button>
+  </div>
+</form>
+{% endblock %}

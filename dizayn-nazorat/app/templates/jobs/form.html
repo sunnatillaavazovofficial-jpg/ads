@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+{% from "partials/macros.html" import icon with context %}
+{% block title %}{{ 'Yangi ish' if is_new else 'Tahrirlash #' ~ job.id }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <a class="btn icon ghost" href="{{ '/jobs' if is_new else '/jobs/' ~ job.id }}" title="Orqaga">{{ icon('back') }}</a>
+  <h1>{{ 'Yangi ish' if is_new else 'Tahrirlash: #' ~ job.id ~ ' ' ~ job.title }}</h1>
+</div>
+
+{% if tg_chat %}
+<div class="alert info mb">💬 Telegram chatdan: <b>{{ tg_chat.title }}</b>{% if tg_chat.username %} (@{{ tg_chat.username }}){% endif %}</div>
+{% endif %}
+
+<form method="post" enctype="multipart/form-data" action="{{ '/jobs/new' if is_new else '/jobs/' ~ job.id ~ '/edit' }}" id="job-form">
+  {% if tg_chat %}<input type="hidden" name="tg_chat_id" value="{{ tg_chat.id }}">{% endif %}
+  <div class="split">
+    <div>
+      <div class="card">
+        <div class="card-h"><h2>Asosiy ma'lumotlar</h2></div>
+        <div class="card-b form-grid">
+          <div class="field c12">
+            <label class="req" for="title">Ish nomi</label>
+            <input class="input" id="title" name="title" value="{{ job.title or '' }}" required placeholder="Masalan: Do'kon peshtoqi uchun banner" autofocus>
+          </div>
+          <div class="field c6">
+            <label for="client_name">Mijoz ismi</label>
+            <input class="input" id="client_name" name="client_name" value="{{ job.client_name or '' }}" placeholder="Ism yoki kompaniya">
+          </div>
+          <div class="field c6">
+            <label for="client_contact">Telefon yoki Telegram</label>
+            <input class="input" id="client_contact" name="client_contact" value="{{ job.client_contact or '' }}" placeholder="+998 90 123 45 67 yoki @username">
+          </div>
+          <div class="field c12">
+            <label for="address">Manzil / joy</label>
+            <input class="input" id="address" name="address" value="{{ job.address or '' }}" placeholder="Qayerga o'rnatiladi">
+          </div>
+          <div class="field c12">
+            <label for="comment">Izoh (dizaynerga ko'rsatmalar)</label>
+            <textarea class="input" id="comment" name="comment" rows="4" placeholder="Ranglar, matn, uslub, mijoz istaklari...">{{ job.comment or '' }}</textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-h"><h2>Joy o'lchami</h2><span class="muted small" id="area-label"></span></div>
+        <div class="card-b form-grid">
+          <div class="field c3">
+            <label for="width">Eni</label>
+            <input class="input" id="width" name="width" inputmode="decimal" value="{{ job.width|num if job.width else '' }}" placeholder="3">
+          </div>
+          <div class="field c3">
+            <label for="height">Bo'yi</label>
+            <input class="input" id="height" name="height" inputmode="decimal" value="{{ job.height|num if job.height else '' }}" placeholder="6">
+          </div>
+          <div class="field c2">
+            <label for="size_unit">Birlik</label>
+            <select class="input" id="size_unit" name="size_unit">
+              <option value="m" {{ 'selected' if job.size_unit != 'sm' }}>metr</option>
+              <option value="sm" {{ 'selected' if job.size_unit == 'sm' }}>sm</option>
+            </select>
+          </div>
+          <div class="field c4">
+            <label for="size_note">Qo'shimcha</label>
+            <input class="input" id="size_note" name="size_note" value="{{ job.size_note or '' }}" placeholder="2 tomonlama, 3 dona...">
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-h"><h2>Fayllar</h2><span class="muted small">Har qanday format: rasm, PDF, PSD, AI, CDR, ZIP... (har biri {{ max_mb }} MB gacha)</span></div>
+        <div class="card-b grid g2">
+          <div>
+            <div class="label mb" style="margin-bottom:6px">🖼 Dizayn qilinadigan joy rasmi</div>
+            <label class="drop" data-drop>
+              <input type="file" name="place_files" multiple>
+              <div class="t">Rasmlarni shu yerga tashlang</div>
+              <div class="small muted">yoki bosib tanlang</div>
+              <div class="drop-list"></div>
+            </label>
+          </div>
+          <div>
+            <div class="label" style="margin-bottom:6px">📁 Logo va qo'shimcha fayllar</div>
+            <label class="drop" data-drop>
+              <input type="file" name="logo_files" multiple>
+              <div class="t">Fayllarni shu yerga tashlang</div>
+              <div class="small muted">yoki bosib tanlang</div>
+              <div class="drop-list"></div>
+            </label>
+          </div>
+          {% if not is_new %}
+          <div style="grid-column: 1 / -1">
+            <div class="label" style="margin-bottom:6px">✅ Tayyor dizayn</div>
+            <label class="drop" data-drop>
+              <input type="file" name="design_files" multiple>
+              <div class="t">Tayyor dizayn fayllari</div>
+              <div class="small muted">yoki bosib tanlang</div>
+              <div class="drop-list"></div>
+            </label>
+            {% if job.files %}<p class="hint">Mavjud fayllar: {{ job.files|length }} ta — ularni ish sahifasida ko'rish va o'chirish mumkin.</p>{% endif %}
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-h"><h2>{{ icon('calc') }} Narx hisoblash</h2>
+          <button type="button" class="btn sm" id="add-row">{{ icon('plus') }} Qator</button>
+        </div>
+        <div class="card-b">
+          <datalist id="price-names">
+            {% for p in prices %}<option value="{{ p.name }}">{{ p.price|num }} / {{ p.unit }}</option>{% endfor %}
+          </datalist>
+          <table class="price-table">
+            <thead><tr><th style="width:40%">Xizmat / material</th><th>Birlik</th><th>Miqdor</th><th>Narxi ({{ CURRENCY }})</th><th class="right">Summa</th><th></th></tr></thead>
+            <tbody id="items">
+              {% for it in job.items %}
+              <tr>
+                <td><input class="input sm" name="item_name" list="price-names" value="{{ it.name }}"></td>
+                <td><select class="input sm" name="item_unit">{% for u in units %}<option {{ 'selected' if u == it.unit }}>{{ u }}</option>{% endfor %}{% if it.unit not in units %}<option selected>{{ it.unit }}</option>{% endif %}</select></td>
+                <td><input class="input sm" name="item_qty" inputmode="decimal" value="{{ it.quantity|num }}"></td>
+                <td><input class="input sm" name="item_price" inputmode="decimal" value="{{ it.unit_price|num }}"></td>
+                <td class="sum">0</td>
+                <td><button type="button" class="btn sm icon ghost danger" data-del title="O'chirish">{{ icon('x') }}</button></td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          <template id="row-tpl">
+            <tr>
+              <td><input class="input sm" name="item_name" list="price-names" placeholder="Tanlang yoki yozing"></td>
+              <td><select class="input sm" name="item_unit">{% for u in units %}<option>{{ u }}</option>{% endfor %}</select></td>
+              <td><input class="input sm" name="item_qty" inputmode="decimal" value="1"></td>
+              <td><input class="input sm" name="item_price" inputmode="decimal" value="0"></td>
+              <td class="sum">0</td>
+              <td><button type="button" class="btn sm icon ghost danger" data-del title="O'chirish">{{ icon('x') }}</button></td>
+            </tr>
+          </template>
+          <p class="hint">Narxlar ro'yxatidan tanlansa, narx va birlik avtomatik qo'yiladi. Birlik «m²» bo'lsa, miqdor joy maydoniga teng bo'ladi.</p>
+          <div class="totals">
+            <span class="muted">Jami:</span><b id="t-sub">0</b>
+            <label class="muted" for="discount">Chegirma:</label><input class="input sm right" id="discount" name="discount" inputmode="decimal" value="{{ job.discount|num if job.discount else '0' }}" style="width:150px">
+            <span class="grand">Umumiy summa:</span><span class="grand" id="t-total">0</span>
+            <label class="muted" for="paid">To'langan (avans):</label><input class="input sm right" id="paid" name="paid" inputmode="decimal" value="{{ job.paid|num if job.paid else '0' }}" style="width:150px">
+            <span class="muted">Qoldiq:</span><span class="debt" id="t-debt">0</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="card" style="position:sticky;top:16px">
+        <div class="card-h"><h2>Jarayon va mas'ullar</h2></div>
+        <div class="card-b" style="display:flex;flex-direction:column;gap:14px">
+          <div class="field">
+            <label for="status">Holat (qaysi bosqichda)</label>
+            <select class="input" id="status" name="status">
+              {% for code, label, color in STATUSES %}<option value="{{ code }}" {{ 'selected' if job.status == code }}>{{ label }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="field">
+            <label for="manager_id">Menejer</label>
+            <select class="input" id="manager_id" name="manager_id">
+              <option value="">— Tanlanmagan</option>
+              {% for m in managers %}<option value="{{ m.id }}" {{ 'selected' if job.manager_id == m.id }}>{{ m.display_name }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="field">
+            <label for="designer_id">Dizayner</label>
+            <select class="input" id="designer_id" name="designer_id">
+              <option value="">— Tayinlanmagan</option>
+              {% for d in designers %}<option value="{{ d.id }}" {{ 'selected' if job.designer_id == d.id }}>{{ d.display_name }}</option>{% endfor %}
+            </select>
+            <span class="hint">Dizayner Telegram botni ulagan bo'lsa, unga darhol xabar boradi.</span>
+          </div>
+          <div class="field">
+            <label for="due_date">Muddat</label>
+            <input class="input" type="date" id="due_date" name="due_date" value="{{ job.due_date.isoformat() if job.due_date else '' }}">
+          </div>
+          <div class="field">
+            <label>Muhimlik</label>
+            <div style="display:flex;gap:16px">
+              {% for code, label in PRIORITIES.items() %}
+              <label class="check"><input type="radio" name="priority" value="{{ code }}" {{ 'checked' if job.priority == code }}> {{ '🔥 ' if code == 'urgent' }}{{ label }}</label>
+              {% endfor %}
+            </div>
+          </div>
+          <button class="btn primary" style="height:42px" id="save-btn">{{ 'Ishni saqlash' if is_new else "O'zgarishlarni saqlash" }}</button>
+          <a class="btn ghost" href="{{ '/jobs' if is_new else '/jobs/' ~ job.id }}">Bekor qilish</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</form>
+{% endblock %}
+{% block scripts %}
+<script>window.DN_PRICES = {{ prices_json|tojson }}; window.DN_CURRENCY = {{ CURRENCY|tojson }};</script>
+<script src="/static/js/job_form.js?v=1"></script>
+{% endblock %}

@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% from "partials/macros.html" import icon, avatar with context %}
+{% block title %}Xodimlar{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>Xodimlar</h1>
+  <a class="btn primary" href="/users/new">{{ icon('plus') }} Xodim qo'shish</a>
+</div>
+<div class="card">
+  <div class="table-wrap">
+  <table class="table">
+    <thead><tr><th>Xodim</th><th>Login</th><th>Rol</th><th>Telefon</th><th>Telegram bot</th><th class="right">Faol ishlari</th><th></th></tr></thead>
+    <tbody>
+    {% for u in users %}
+      <tr style="{{ 'opacity:.5' if not u.is_active }}">
+        <td><span class="person">{{ avatar(u) }}<b>{{ u.display_name }}</b></span>{% if not u.is_active %} <span class="badge">o'chirilgan</span>{% endif %}</td>
+        <td>{{ u.username }}</td>
+        <td><span class="badge">{{ ROLES.get(u.role, u.role) }}</span></td>
+        <td>{{ u.phone or '—' }}</td>
+        <td>{% if u.telegram_id %}<span class="badge okb">✓ ulangan{% if u.telegram_username %} · @{{ u.telegram_username }}{% endif %}</span>{% else %}<span class="muted small">ulanmagan</span>{% endif %}</td>
+        <td class="right">
+          {% if u.role == 'designer' %}<a href="/jobs?designer={{ u.id }}">{{ active.get(u.id, 0) }}</a>
+          {% else %}<a href="/jobs?manager={{ u.id }}">{{ managed.get(u.id, 0) }}</a>{% endif %}
+        </td>
+        <td class="right"><a class="btn sm" href="/users/{{ u.id }}">{{ icon('edit') }} Tahrirlash</a></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+<p class="hint mt">Har bir xodim o'z profilidan Telegram botni ulashi mumkin — shunda unga yangi ishlar va o'zgarishlar haqida xabar boradi va bot orqali ish kirita oladi.</p>
+{% endblock %}

@@ -1,0 +1,61 @@
+{% from "partials/macros.html" import icon, avatar with context %}<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Dizayn Nazorat{% endblock %} · Dizayn Nazorat</title>
+  <link rel="stylesheet" href="/static/css/app.css?v=1">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%236d5dfc'/><text x='16' y='22' font-size='16' text-anchor='middle' fill='white' font-family='Arial' font-weight='bold'>DN</text></svg>">
+  {% block head %}{% endblock %}
+</head>
+<body>
+{% if user %}
+<div class="app">
+  <aside class="sidebar" id="sidebar">
+    <div class="brand"><span class="logo">DN</span> Dizayn Nazorat</div>
+    <nav class="nav">
+      <a href="/" class="{{ 'active' if path == '/' }}">{{ icon('home') }} Bosh sahifa</a>
+      <a href="/jobs" class="{{ 'active' if path == '/jobs' or (path.startswith('/jobs/') and path != '/jobs/board' and path != '/jobs/new') }}">{{ icon('list') }} Ishlar</a>
+      <a href="/jobs/board" class="{{ 'active' if path == '/jobs/board' }}">{{ icon('board') }} Kanban doska</a>
+      <a href="/jobs/new" class="{{ 'active' if path == '/jobs/new' }}">{{ icon('plus') }} Yangi ish</a>
+      {% if user.can_manage %}
+      <a href="/inbox" class="{{ 'active' if path.startswith('/inbox') }}">{{ icon('chat') }} Telegram chatlar <span class="badge-n hidden" id="nav-unread"></span></a>
+      {% endif %}
+      <a href="/prices" class="{{ 'active' if path.startswith('/prices') }}">{{ icon('tag') }} Narxlar</a>
+      {% if user.is_admin %}
+      <div class="sep">Sozlamalar</div>
+      <a href="/users" class="{{ 'active' if path.startswith('/users') }}">{{ icon('users') }} Xodimlar</a>
+      <a href="/tg/accounts" class="{{ 'active' if path.startswith('/tg/') }}">{{ icon('phone') }} Telegram akkauntlar</a>
+      {% endif %}
+    </nav>
+    <div class="side-user">
+      {{ avatar(user, 'lg') }}
+      <div class="who"><b>{{ user.display_name }}</b><span class="small">{{ ROLES.get(user.role) }}</span></div>
+      <a href="/profile" title="Profil">{{ icon('user') }}</a>
+      <a href="/logout" title="Chiqish">{{ icon('logout') }}</a>
+    </div>
+  </aside>
+  <div class="backdrop" id="backdrop"></div>
+  <div class="main">
+    <div class="topbar">
+      <button class="btn icon ghost" id="menu-btn" aria-label="Menyu">{{ icon('menu') }}</button>
+      <b>Dizayn Nazorat</b>
+    </div>
+    <main class="content">
+      {% if messages %}
+      <div class="alerts">
+        {% for cat, msg in messages %}<div class="alert {{ cat }}">{{ msg }}</div>{% endfor %}
+      </div>
+      {% endif %}
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+</div>
+{% else %}
+  {% block bare %}{% endblock %}
+{% endif %}
+<script src="/static/js/app.js?v=1"></script>
+{% if user and user.can_manage %}<script>window.DN_POLL_UNREAD = true;</script>{% endif %}
+{% block scripts %}{% endblock %}
+</body>
+</html>

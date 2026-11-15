@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% from "partials/macros.html" import icon with context %}
+{% block title %}Chatlarni saralash — {{ acc.name }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <a class="btn icon ghost" href="/tg/accounts">{{ icon('back') }}</a>
+  <h1>Chatlarni saralash: <span style="color: {{ acc.color }}">{{ acc.name }}</span></h1>
+  <div class="sub">Belgilangan chatlar «Telegram chatlar» bo'limida boshqa akkauntlar chatlari bilan birga ko'rinadi.</div>
+</div>
+{% if error %}<div class="alert error mb">{{ error }}</div>{% endif %}
+<form method="post" class="card" id="chat-form">
+  <div class="filters">
+    <input class="input search" id="chat-q" placeholder="Chat nomini qidirish...">
+    <div class="tabs" id="kind-tabs">
+      <a href="#" data-k="" class="active">Hammasi</a>
+      <a href="#" data-k="user">Shaxsiy</a>
+      <a href="#" data-k="group">Guruhlar</a>
+      <a href="#" data-k="channel">Kanallar</a>
+      <a href="#" data-k="bot">Botlar</a>
+      <a href="#" data-k="sel">✓ Tanlanganlar</a>
+    </div>
+    <span class="muted small" id="sel-count"></span>
+    <button class="btn primary">Saqlash</button>
+  </div>
+  {% if dialogs %}
+  <div class="table-wrap">
+  <table class="table" id="chat-table">
+    <thead><tr><th style="width:40px"><input type="checkbox" id="check-all" title="Ko'rinayotganlarning hammasini belgilash"></th><th>Chat</th><th>Turi</th><th>Oxirgi xabar</th><th class="right">O'qilmagan</th></tr></thead>
+    <tbody>
+    {% set KIND = {'user': 'Shaxsiy', 'group': 'Guruh', 'channel': 'Kanal', 'bot': 'Bot'} %}
+    {% for d in dialogs %}
+      <tr data-kind="{{ d.kind }}" data-name="{{ (d.title ~ ' ' ~ (d.username or '') ~ ' ' ~ (d.phone or ''))|lower }}">
+        <td><input type="checkbox" name="chat" value="{{ d.chat_id }}" {{ 'checked' if d.chat_id in selected }}></td>
+        <td><b>{{ d.title }}</b>{% if d.username %} <span class="muted small">@{{ d.username }}</span>{% endif %}{% if d.archived %} <span class="badge">arxiv</span>{% endif %}</td>
+        <td><span class="badge">{{ KIND.get(d.kind, d.kind) }}</span></td>
+        <td class="small muted" style="max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ d.last }}<br>{{ d.date|dt if d.date else '' }}</td>
+        <td class="right">{% if d.unread %}<span class="badge" style="background:var(--primary);color:#fff;border:0">{{ d.unread }}</span>{% endif %}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% elif not error %}
+  <div class="empty">Chatlar topilmadi</div>
+  {% endif %}
+</form>
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+  const rows = [...document.querySelectorAll('#chat-table tbody tr')];
+  const q = document.getElementById('chat-q');
+  const cnt = document.getElementById('sel-count');
+  let kind = '';
+  function apply() {
+    const term = q.value.trim().toLowerCase();
+    rows.forEach(r => {
+      const cb = r.querySelector('input');
+      let ok = (!term || r.dataset.name.includes(term));
+      if (kind === 'sel') ok = ok && cb.checked; else if (kind) ok = ok && r.dataset.kind === kind;
+      r.classList.toggle('hidden', !ok);
+    });
+    count();
+  }
+  function count() { cnt.textContent = rows.filter(r => r.querySelector('input').checked).length + ' ta tanlangan'; }
+  q && q.addEventListener('input', apply);
+  document.querySelectorAll('#kind-tabs a').forEach(a => a.addEventListener('click', e => {
+    e.preventDefault(); kind = a.dataset.k;
+    document.querySelectorAll('#kind-tabs a').forEach(x => x.classList.toggle('active', x === a)); apply();
+  }));
+  document.getElementById('chat-form').addEventListener('change', count);
+  const all = document.getElementById('check-all');
+  all && all.addEventListener('change', () => { rows.filter(r => !r.classList.contains('hidden')).forEach(r => r.querySelector('input').checked = all.checked); count(); });
+  count();
+})();
+</script>
+{% endblock %}
