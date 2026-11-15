@@ -1,8 +1,9 @@
 """
 Telegram Saver Bot — bir martalik (view-once), o'chirilgan va tahrirlangan
-xabarlarni saqlab qoluvchi shaxsiy bot.
+xabarlarni saqlab qoluvchi bot.
 
-Telegram Business (Chatbotlar) orqali sizning akkauntingizga ulanadi va:
+Telegram Business (Chatbotlar) orqali ruxsat berilgan foydalanuvchilar
+akkauntiga ulanadi va har bir foydalanuvchiga FAQAT o'zining xabarlarini yuboradi:
   * bir martalik rasm/video/ovozli xabarga REPLY qilsangiz — uni sizga yuboradi;
   * suhbatdoshingiz xabarni o'chirsa — o'chirilgan xabarni sizga yuboradi;
   * suhbatdoshingiz xabarni tahrirlasa — eski va yangi matnni yuboradi.
@@ -16,12 +17,13 @@ import io
 import json
 import logging
 import os
+import re
 import sqlite3
 import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from aiogram import Bot, Dispatcher, F, Router
+from aiogram import Bot, Dispatcher, Router
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.exceptions import TelegramAPIError
@@ -51,12 +53,20 @@ def _env_bool(name: str, default: bool) -> bool:
     return value.strip().lower() in {"1", "true", "yes", "on", "ha"}
 
 
+def _env_ids(name: str) -> set[int]:
+    raw = os.getenv(name, "")
+    return {int(x) for x in re.split(r"[\s,;]+", raw) if x.strip().isdigit()}
+
+
 BOT_TOKEN = os.getenv("BOT_TOKEN", "").strip()
+# Asosiy egasi (admin): begona ulanishlar haqida xabar oladi
 OWNER_ID = int(os.getenv("OWNER_ID", "0") or 0)
+# Botdan foydalana oladigan qo'shimcha foydalanuvchilar (vergul bilan)
+ALLOWED_IDS = ({OWNER_ID} | _env_ids("ALLOWED_IDS")) - {0}
 DB_PATH = Path(os.getenv("DB_PATH", Path(__file__).with_name("data") / "messages.db"))
 KEEP_DAYS = int(os.getenv("KEEP_DAYS", "30"))
 TZ = timezone(timedelta(hours=float(os.getenv("TZ_OFFSET", "5"))))  # Toshkent: UTC+5
-# Reply-trigger xabaringizni chatdan avtomatik o'chirish
+# Reply-trigger xabarni chatdan avtomatik o'chirish
 # (Business sozlamalarida "Barcha xabarlarni o'chirish" ruxsati kerak)
 DELETE_TRIGGER_REPLY = _env_bool("DELETE_TRIGGER_REPLY", True)
 
@@ -100,9 +110,32 @@ FILE_EXT = {
 NO_CAPTION_KINDS = {"video_note", "sticker"}
 
 
+def is_allowed(user_id: int | None) -> bool:
+    return user_id is not None and user_id in ALLOWED_IDS
+
+
 # --------------------------------------------------------------------------- #
 # Ma'lumotlar bazasi (SQLite)
 # --------------------------------------------------------------------------- #
+MESSAGES_SCHEMA = """
+CREATE TABLE IF NOT EXISTS messages (
+    owner_id     INTEGER NOT NULL,
+    chat_id      INTEGER NOT NULL,
+    message_id   INTEGER NOT NULL,
+    conn_id      TEXT,
+    sender_id    INTEGER,
+    sender_name  TEXT,
+    chat_name    TEXT,
+    kind         TEXT,
+    file_id      TEXT,
+    text         TEXT,
+    date         INTEGER,
+    saved_at     INTEGER,
+    PRIMARY KEY (owner_id, chat_id, message_id)
+);
+"""
+
+
 class Storage:
     def __init__(self, path: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -111,20 +144,6 @@ class Storage:
         self.db.execute("PRAGMA journal_mode=WAL")
         self.db.executescript(
             """
-            CREATE TABLE IF NOT EXISTS messages (
-                chat_id      INTEGER NOT NULL,
-                message_id   INTEGER NOT NULL,
-                conn_id      TEXT,
-                sender_id    INTEGER,
-                sender_name  TEXT,
-                chat_name    TEXT,
-                kind         TEXT,
-                file_id      TEXT,
-                text         TEXT,
-                date         INTEGER,
-                saved_at     INTEGER,
-                PRIMARY KEY (chat_id, message_id)
-            );
             CREATE TABLE IF NOT EXISTS connections (
                 conn_id    TEXT PRIMARY KEY,
                 user_id    INTEGER,
@@ -133,19 +152,47 @@ class Storage:
             );
             """
         )
+        self._migrate_messages()
+        self.db.executescript(MESSAGES_SCHEMA)
+        self.db.commit()
+
+    def _migrate_messages(self) -> None:
+        """Eski (bitta foydalanuvchili) jadvalni ko'p foydalanuvchili jadvalga o'tkazadi."""
+        cols = {r[1] for r in self.db.execute("PRAGMA table_info(messages)")}
+        if not cols or "owner_id" in cols:
+            return
+        log.info("Baza yangi formatga o'tkazilmoqda...")
+        self.db.execute("ALTER TABLE messages RENAME TO messages_old")
+        self.db.executescript(MESSAGES_SCHEMA)
+        self.db.execute(
+            """
+            INSERT OR IGNORE INTO messages
+                (owner_id, chat_id, message_id, conn_id, sender_id, sender_name,
+                 chat_name, kind, file_id, text, date, saved_at)
+            SELECT COALESCE(
+                       (SELECT c.user_id FROM connections c WHERE c.conn_id = m.conn_id), ?
+                   ),
+                   chat_id, message_id, conn_id, sender_id, sender_name,
+                   chat_name, kind, file_id, text, date, saved_at
+            FROM messages_old m
+            """,
+            (OWNER_ID,),
+        )
+        self.db.execute("DROP TABLE messages_old")
         self.db.commit()
 
     # --- xabarlar ---------------------------------------------------------- #
-    def save_message(self, msg: Message) -> None:
+    def save_message(self, owner_id: int, msg: Message) -> None:
         kind, file_id = extract_media(msg)
         self.db.execute(
             """
             INSERT OR REPLACE INTO messages
-                (chat_id, message_id, conn_id, sender_id, sender_name, chat_name,
-                 kind, file_id, text, date, saved_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                (owner_id, chat_id, message_id, conn_id, sender_id, sender_name,
+                 chat_name, kind, file_id, text, date, saved_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
+                owner_id,
                 msg.chat.id,
                 msg.message_id,
                 msg.business_connection_id,
@@ -161,17 +208,17 @@ class Storage:
         )
         self.db.commit()
 
-    def get_message(self, chat_id: int, message_id: int) -> sqlite3.Row | None:
+    def get_message(self, owner_id: int, chat_id: int, message_id: int) -> sqlite3.Row | None:
         cur = self.db.execute(
-            "SELECT * FROM messages WHERE chat_id = ? AND message_id = ?",
-            (chat_id, message_id),
+            "SELECT * FROM messages WHERE owner_id = ? AND chat_id = ? AND message_id = ?",
+            (owner_id, chat_id, message_id),
         )
         return cur.fetchone()
 
-    def delete_message(self, chat_id: int, message_id: int) -> None:
+    def delete_message(self, owner_id: int, chat_id: int, message_id: int) -> None:
         self.db.execute(
-            "DELETE FROM messages WHERE chat_id = ? AND message_id = ?",
-            (chat_id, message_id),
+            "DELETE FROM messages WHERE owner_id = ? AND chat_id = ? AND message_id = ?",
+            (owner_id, chat_id, message_id),
         )
         self.db.commit()
 
@@ -181,8 +228,12 @@ class Storage:
         self.db.commit()
         return cur.rowcount
 
-    def count(self) -> int:
-        return self.db.execute("SELECT COUNT(*) FROM messages").fetchone()[0]
+    def count(self, owner_id: int | None = None) -> int:
+        if owner_id is None:
+            return self.db.execute("SELECT COUNT(*) FROM messages").fetchone()[0]
+        return self.db.execute(
+            "SELECT COUNT(*) FROM messages WHERE owner_id = ?", (owner_id,)
+        ).fetchone()[0]
 
     # --- business ulanishlar ----------------------------------------------- #
     def save_connection(self, conn: BusinessConnection) -> None:
@@ -194,7 +245,7 @@ class Storage:
         )
         self.db.commit()
 
-    def connection_owner(self, conn_id: str) -> int | None:
+    def connection_user(self, conn_id: str) -> int | None:
         row = self.db.execute(
             "SELECT user_id FROM connections WHERE conn_id = ?", (conn_id,)
         ).fetchone()
@@ -249,16 +300,16 @@ def fmt_time(ts: int | None) -> str:
 
 
 async def send_media(
-    bot: Bot, kind: str, file_id: str, caption: str, prefer_download: bool = False
+    bot: Bot, to: int, kind: str, file_id: str, caption: str, prefer_download: bool = False
 ) -> bool:
     """
-    Mediani egaga yuboradi. Avval file_id orqali (yoki teskari tartibda),
+    Mediani foydalanuvchiga yuboradi. Avval file_id orqali (yoki teskari tartibda),
     bo'lmasa faylni yuklab olib, qayta yuklash orqali yuboradi.
     """
     caption = cut(caption, 1024)
 
     async def by_file_id() -> None:
-        await _send(bot, kind, file_id, caption)
+        await _send(bot, to, kind, file_id, caption)
 
     async def by_download() -> None:
         buf = io.BytesIO()
@@ -267,7 +318,7 @@ async def send_media(
         if not data:
             raise RuntimeError("bo'sh fayl")
         upload = BufferedInputFile(data, filename=f"{kind}.{FILE_EXT.get(kind, 'bin')}")
-        await _send(bot, kind, upload, caption)
+        await _send(bot, to, kind, upload, caption)
 
     attempts = (by_download, by_file_id) if prefer_download else (by_file_id, by_download)
     for attempt in attempts:
@@ -279,12 +330,12 @@ async def send_media(
     return False
 
 
-async def _send(bot: Bot, kind: str, media, caption: str) -> None:
+async def _send(bot: Bot, to: int, kind: str, media, caption: str) -> None:
     if kind in NO_CAPTION_KINDS:
         # Dumaloq video va stikerga izoh qo'shib bo'lmaydi — alohida yuboramiz
-        await bot.send_message(OWNER_ID, caption)
+        await bot.send_message(to, caption)
         method = bot.send_video_note if kind == "video_note" else bot.send_sticker
-        await method(OWNER_ID, media)
+        await method(to, media)
         return
     method = {
         "photo": bot.send_photo,
@@ -294,7 +345,7 @@ async def _send(bot: Bot, kind: str, media, caption: str) -> None:
         "animation": bot.send_animation,
         "document": bot.send_document,
     }[kind]
-    await method(OWNER_ID, media, caption=caption)
+    await method(to, media, caption=caption)
 
 
 # --------------------------------------------------------------------------- #
@@ -305,21 +356,24 @@ storage: Storage  # main() ichida yaratiladi
 _conn_cache: dict[str, int] = {}
 
 
-async def is_owner_connection(bot: Bot, conn_id: str | None) -> bool:
-    """Business ulanish aynan bot egasiga tegishli ekanini tekshiradi."""
+async def connection_user(bot: Bot, conn_id: str | None) -> int | None:
+    """
+    Business ulanish qaysi foydalanuvchiga tegishli ekanini qaytaradi.
+    Foydalanuvchi ruxsat etilganlar ro'yxatida bo'lmasa — None.
+    """
     if not conn_id:
-        return False
-    owner = _conn_cache.get(conn_id) or storage.connection_owner(conn_id)
-    if owner is None:
+        return None
+    user_id = _conn_cache.get(conn_id) or storage.connection_user(conn_id)
+    if user_id is None:
         try:
             conn = await bot.get_business_connection(conn_id)
             storage.save_connection(conn)
-            owner = conn.user.id
+            user_id = conn.user.id
         except TelegramAPIError as e:
             log.warning("Business ulanishni olib bo'lmadi: %s", e)
-            return False
-    _conn_cache[conn_id] = owner
-    return owner == OWNER_ID
+            return None
+    _conn_cache[conn_id] = user_id
+    return user_id if is_allowed(user_id) else None
 
 
 HELP_TEXT = (
@@ -337,49 +391,66 @@ HELP_TEXT = (
     "✏️ <b>Tahrirlangan xabarlar</b> — eski va yangi matn avtomatik keladi.\n\n"
     "/stats — saqlangan xabarlar soni"
 )
+DENIED_TEXT = "⛔️ Sizga bu botdan foydalanishga ruxsat berilmagan."
 
 
 @router.message(CommandStart())
 @router.message(Command("help"))
 async def cmd_start(message: Message) -> None:
-    if message.from_user is None or message.from_user.id != OWNER_ID:
-        await message.answer("⛔️ Bu shaxsiy bot.")
+    user_id = message.from_user.id if message.from_user else None
+    if not is_allowed(user_id):
+        await message.answer(f"{DENIED_TEXT}\n🆔 Sizning ID: <code>{user_id}</code>")
         return
     await message.answer(HELP_TEXT)
 
 
 @router.message(Command("stats"))
 async def cmd_stats(message: Message) -> None:
-    if message.from_user is None or message.from_user.id != OWNER_ID:
+    user_id = message.from_user.id if message.from_user else None
+    if not is_allowed(user_id):
         return
-    await message.answer(
-        f"📦 Bazada saqlangan xabarlar: <b>{storage.count()}</b>\n"
+    text = (
+        f"📦 Sizning saqlangan xabarlaringiz: <b>{storage.count(user_id)}</b>\n"
         f"🕒 Saqlash muddati: {KEEP_DAYS} kun"
     )
+    if user_id == OWNER_ID:
+        text += (
+            f"\n\n👑 Admin: jami xabarlar — <b>{storage.count()}</b>, "
+            f"ruxsat etilgan foydalanuvchilar — <b>{len(ALLOWED_IDS)}</b>"
+        )
+    await message.answer(text)
 
 
 @router.message()
 async def other_private(message: Message) -> None:
-    if message.from_user is None or message.from_user.id != OWNER_ID:
-        await message.answer("⛔️ Bu shaxsiy bot.")
+    user_id = message.from_user.id if message.from_user else None
+    if not is_allowed(user_id):
+        await message.answer(DENIED_TEXT)
 
 
 @router.business_connection()
 async def on_business_connection(conn: BusinessConnection, bot: Bot) -> None:
     storage.save_connection(conn)
     _conn_cache[conn.id] = conn.user.id
+    user_id = conn.user.id
 
-    if conn.user.id != OWNER_ID:
-        log.warning("Begona foydalanuvchi ulanishga urindi: %s", conn.user.id)
-        await bot.send_message(
-            OWNER_ID,
-            f"⚠️ Begona foydalanuvchi botni ulashga urindi: "
-            f"{esc(conn.user.full_name)} (<code>{conn.user.id}</code>). E'tiborsiz qoldirildi.",
-        )
+    if not is_allowed(user_id):
+        log.warning("Ruxsatsiz foydalanuvchi ulanishga urindi: %s", user_id)
+        try:
+            await bot.send_message(conn.user_chat_id, DENIED_TEXT)
+        except TelegramAPIError:
+            pass
+        if OWNER_ID:
+            await bot.send_message(
+                OWNER_ID,
+                f"⚠️ Ruxsatsiz foydalanuvchi botni ulashga urindi: "
+                f"{esc(conn.user.full_name)} (<code>{user_id}</code>). E'tiborsiz qoldirildi.\n"
+                f"Ruxsat berish uchun ID ni <code>.env</code> dagi <code>ALLOWED_IDS</code> ga qo'shing.",
+            )
         return
 
     if not conn.is_enabled:
-        await bot.send_message(OWNER_ID, "🔌 Bot Telegram Business'dan uzildi.")
+        await bot.send_message(conn.user_chat_id, "🔌 Bot Telegram Business'dan uzildi.")
         return
 
     rights = conn.rights
@@ -389,22 +460,32 @@ async def on_business_connection(conn: BusinessConnection, bot: Bot) -> None:
             "\nℹ️ Reply xabaringiz avtomatik o'chishi uchun Business sozlamalarida "
             "«Barcha xabarlarni o'chirish» ruxsatini yoqing (ixtiyoriy)."
         )
-    await bot.send_message(OWNER_ID, "\n".join(lines))
+    await bot.send_message(conn.user_chat_id, "\n".join(lines))
+
+    if user_id != OWNER_ID and OWNER_ID:
+        try:
+            await bot.send_message(
+                OWNER_ID,
+                f"ℹ️ {esc(conn.user.full_name)} (<code>{user_id}</code>) botni ulab oldi.",
+            )
+        except TelegramAPIError:
+            pass
 
 
 @router.business_message()
 async def on_business_message(message: Message, bot: Bot) -> None:
-    if not await is_owner_connection(bot, message.business_connection_id):
+    user_id = await connection_user(bot, message.business_connection_id)
+    if user_id is None:
         return
 
-    from_owner = message.from_user is not None and message.from_user.id == OWNER_ID
+    from_user = message.from_user is not None and message.from_user.id == user_id
 
-    if not from_owner:
+    if not from_user:
         # Suhbatdoshning xabari — o'chirilsa/tahrirlansa ko'rsatish uchun saqlaymiz
-        storage.save_message(message)
+        storage.save_message(user_id, message)
         return
 
-    # Egasining xabari: media xabarga reply bo'lsa — o'sha mediani saqlaymiz
+    # Foydalanuvchining o'z xabari: media xabarga reply bo'lsa — o'sha mediani saqlaymiz
     replied = message.reply_to_message
     if replied is None:
         return
@@ -421,10 +502,10 @@ async def on_business_message(message: Message, bot: Bot) -> None:
     if replied.caption:
         caption += f"\n\n📝 {esc(cut(replied.caption, 600))}"
 
-    ok = await send_media(bot, kind, file_id, caption, prefer_download=True)
+    ok = await send_media(bot, user_id, kind, file_id, caption, prefer_download=True)
     if not ok:
         await bot.send_message(
-            OWNER_ID,
+            user_id,
             "❌ Mediani saqlab bo'lmadi. Ehtimol u allaqachon ochilgan yoki "
             "fayl 20 MB dan katta.",
         )
@@ -441,16 +522,17 @@ async def on_business_message(message: Message, bot: Bot) -> None:
 
 @router.edited_business_message()
 async def on_edited_business_message(message: Message, bot: Bot) -> None:
-    if not await is_owner_connection(bot, message.business_connection_id):
+    user_id = await connection_user(bot, message.business_connection_id)
+    if user_id is None:
         return
-    if message.from_user is not None and message.from_user.id == OWNER_ID:
+    if message.from_user is not None and message.from_user.id == user_id:
         return
     if message.location:
         return  # jonli lokatsiya yangilanishlari
 
-    old = storage.get_message(message.chat.id, message.message_id)
+    old = storage.get_message(user_id, message.chat.id, message.message_id)
     new_text = message.text or message.caption or ""
-    storage.save_message(message)
+    storage.save_message(user_id, message)
 
     old_text = old["text"] if old else None
     if old is not None and old_text == new_text:
@@ -463,12 +545,13 @@ async def on_edited_business_message(message: Message, bot: Bot) -> None:
         f"<b>Eski:</b>\n{esc(cut(old_text, 1800)) if old_text is not None else '<i>(bazada yoʻq)</i>'}\n\n"
         f"<b>Yangi:</b>\n{esc(cut(new_text, 1800)) or '<i>(boʻsh)</i>'}"
     )
-    await bot.send_message(OWNER_ID, text)
+    await bot.send_message(user_id, text)
 
 
 @router.deleted_business_messages()
 async def on_deleted_business_messages(event: BusinessMessagesDeleted, bot: Bot) -> None:
-    if not await is_owner_connection(bot, event.business_connection_id):
+    user_id = await connection_user(bot, event.business_connection_id)
+    if user_id is None:
         return
 
     chat = event.chat
@@ -478,7 +561,7 @@ async def on_deleted_business_messages(event: BusinessMessagesDeleted, bot: Bot)
 
     unknown = 0
     for message_id in event.message_ids:
-        row = storage.get_message(chat.id, message_id)
+        row = storage.get_message(user_id, chat.id, message_id)
         if row is None:
             unknown += 1
             continue
@@ -493,15 +576,15 @@ async def on_deleted_business_messages(event: BusinessMessagesDeleted, bot: Bot)
 
         if row["file_id"]:
             caption = header + (f"\n\n📝 {esc(cut(body, 600))}" if body else "")
-            ok = await send_media(bot, row["kind"], row["file_id"], caption)
+            ok = await send_media(bot, user_id, row["kind"], row["file_id"], caption)
             if not ok:
                 await bot.send_message(
-                    OWNER_ID, header + "\n\n<i>(media faylni yuborib bo'lmadi)</i>"
+                    user_id, header + "\n\n<i>(media faylni yuborib bo'lmadi)</i>"
                 )
         else:
-            await bot.send_message(OWNER_ID, f"{header}\n\n{esc(cut(body, 3500))}")
+            await bot.send_message(user_id, f"{header}\n\n{esc(cut(body, 3500))}")
 
-        storage.delete_message(chat.id, message_id)
+        storage.delete_message(user_id, chat.id, message_id)
 
     if unknown:
         log.info("%s ta o'chirilgan xabar bazada topilmadi (chat %s)", unknown, chat.id)
@@ -532,11 +615,20 @@ async def main() -> None:
     dp.include_router(router)
 
     me = await bot.get_me()
-    log.info("Bot ishga tushdi: @%s (egasi: %s)", me.username, OWNER_ID)
+    log.info(
+        "Bot ishga tushdi: @%s (admin: %s, ruxsat etilganlar: %s)",
+        me.username,
+        OWNER_ID,
+        sorted(ALLOWED_IDS),
+    )
     try:
-        await bot.send_message(OWNER_ID, f"🚀 @{esc(me.username)} ishga tushdi. /help")
+        await bot.send_message(
+            OWNER_ID,
+            f"🚀 @{esc(me.username)} ishga tushdi.\n"
+            f"👥 Ruxsat etilgan foydalanuvchilar: {len(ALLOWED_IDS)} ta\n/help",
+        )
     except TelegramAPIError:
-        log.warning("Egaga xabar yuborib bo'lmadi — avval botga /start yozing.")
+        log.warning("Adminga xabar yuborib bo'lmadi — avval botga /start yozing.")
 
     cleaner = asyncio.create_task(cleanup_loop())
     try:

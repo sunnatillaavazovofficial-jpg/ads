@@ -1,12 +1,13 @@
 # Telegram Saver Bot
 
 Bu bot Telegram'dagi **bir martalik (view-once)** rasm, video va ovozli xabarlarni, shuningdek
-**o'chirilgan** va **tahrirlangan** xabarlarni saqlab qoladi. Bot faqat bitta egaga
-(`OWNER_ID`) xizmat qiladi. Boshqa odamlar undan foydalana olmaydi.
+**o'chirilgan** va **tahrirlangan** xabarlarni saqlab qoladi. Botdan faqat ruxsat berilgan
+odamlar foydalana oladi: egasi (`OWNER_ID`) va `ALLOWED_IDS` ro'yxatidagilar. Har bir foydalanuvchi
+faqat **o'zining** xabarlarini oladi, bir-birinikini ko'rmaydi.
 
 Bot shaxsiy chatlaringizni **Telegram Business → Chatbotlar** funksiyasi orqali ko'radi.
 
-> ⚠️ **Talab:** akkauntingizda **Telegram Premium** bo'lishi kerak. Chatbot ulash faqat Business
+> ⚠️ **Talab:** botni ulaydigan har bir akkauntda **Telegram Premium** bo'lishi kerak. Chatbot ulash faqat Business
 > funksiyasida bor, Business esa Premium bilan keladi.
 
 ---
@@ -30,6 +31,19 @@ Xabarlar serverdagi SQLite bazasida `KEEP_DAYS` kun (standart 30 kun) saqlanadi,
 2. **Bot Settings → Secretary Mode → Turn on** ✅ (oldin «Business Mode» deb atalgan; shuni yoqmasangiz bot ishlamaydi)
 
 ## 2. Serverga o'rnatish
+
+### Eng oson yo'l: bitta buyruq (Ubuntu/Debian)
+
+Serverga `root` sifatida kiring va shuni yozing:
+
+```bash
+apt update && apt install -y curl && bash <(curl -fsSL https://raw.githubusercontent.com/sunnatillaavazovofficial-jpg/ads/refs/heads/claude/inspiring-shannon-renzbu/telegram-saver-bot/setup.sh)
+```
+
+Skript tokenni, sizning ID'ingizni va (ixtiyoriy) qo'shimcha foydalanuvchilar ID'larini so'raydi.
+Shu buyruqni qayta ishga tushirsangiz, bot yangilanadi va sozlamalar saqlanib qoladi.
+
+### Qo'lda o'rnatish
 
 Serverga shu papkani ko'chiring (masalan `git clone` bilan), keyin `.env` faylini yarating:
 
@@ -90,6 +104,19 @@ Ikkala usulda ham server qayta yonganda yoki bot yiqilib qolganda u o'zi qayta i
 
 Ulangandan keyin bot sizga **"✅ Bot akkauntingizga ulandi!"** deb yozadi.
 
+## 4. Boshqa odamlarga ruxsat berish
+
+Bot o'rnatilgan serverda quyidagi buyruqni yozing. ID'larni vergul bilan ajrating.
+Ro'yxat to'liq almashtiriladi, shuning uchun hamma kerakli ID'larni yozing:
+
+```bash
+ALLOWED_IDS=111111111,222222222 bash <(curl -fsSL https://raw.githubusercontent.com/sunnatillaavazovofficial-jpg/ads/refs/heads/claude/inspiring-shannon-renzbu/telegram-saver-bot/setup.sh)
+```
+
+Keyin har bir odam o'z Telegram'ida botga `/start` yozadi va 3-bo'limdagidek botni
+o'z akkauntiga ulaydi. Ruxsatsiz odam ulanishga urinsa, bot uni rad etadi va sizga
+(admin'ga) uning ID'si bilan xabar yuboradi. Odam o'z ID'sini botga `/start` yozib bilib olishi mumkin.
+
 ---
 
 ## Sozlamalar (`.env`)
@@ -97,7 +124,8 @@ Ulangandan keyin bot sizga **"✅ Bot akkauntingizga ulandi!"** deb yozadi.
 | O'zgaruvchi | Standart | Tavsif |
 |---|---|---|
 | `BOT_TOKEN` | — | BotFather bergan token (majburiy) |
-| `OWNER_ID` | — | Sizning Telegram ID raqamingiz (majburiy) |
+| `OWNER_ID` | — | Sizning Telegram ID raqamingiz, admin (majburiy) |
+| `ALLOWED_IDS` | — | Botdan foydalana oladigan qo'shimcha odamlar ID'lari, vergul bilan |
 | `KEEP_DAYS` | `30` | Xabarlar bazada necha kun saqlanadi |
 | `TZ_OFFSET` | `5` | Vaqt zonasi, UTC+N (Toshkent = 5) |
 | `DELETE_TRIGGER_REPLY` | `1` | Reply xabaringizni avtomatik o'chirish (`1`/`0`) |
