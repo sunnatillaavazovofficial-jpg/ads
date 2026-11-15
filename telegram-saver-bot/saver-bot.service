@@ -1,0 +1,14 @@
+[Unit]
+Description=Telegram Saver Bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/telegram-saver-bot
+ExecStart=/opt/telegram-saver-bot/venv/bin/python bot.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

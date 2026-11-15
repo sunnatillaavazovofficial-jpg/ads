@@ -1,0 +1,10 @@
+services:
+  saver-bot:
+    build: .
+    container_name: saver-bot
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DB_PATH: /app/data/messages.db
+    volumes:
+      - ./data:/app/data
