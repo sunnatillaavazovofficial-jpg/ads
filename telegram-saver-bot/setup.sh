@@ -7,7 +7,7 @@
 # systemd xizmati sifatida ishga tushiradi. Qayta ishga tushirilsa — botni
 # yangilaydi va avvalgi sozlamalarni saqlab qoladi.
 #
-# Qo'shimcha foydalanuvchilarga ruxsat berish (ro'yxat to'liq almashtiriladi):
+# Boshlang'ich ruxsatlar (keyin ruxsatlar bot ichida boshqariladi):
 #   ALLOWED_IDS=111111111,222222222 bash <(curl -fsSL .../setup.sh)
 set -euo pipefail
 

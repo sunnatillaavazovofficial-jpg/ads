@@ -1,9 +1,9 @@
 # Telegram Saver Bot
 
-Bu bot Telegram'dagi **bir martalik (view-once)** rasm, video va ovozli xabarlarni, shuningdek
-**o'chirilgan** va **tahrirlangan** xabarlarni saqlab qoladi. Botdan faqat ruxsat berilgan
-odamlar foydalana oladi: egasi (`OWNER_ID`) va `ALLOWED_IDS` ro'yxatidagilar. Har bir foydalanuvchi
-faqat **o'zining** xabarlarini oladi, bir-birinikini ko'rmaydi.
+Bu bot Telegram'dagi **maxfiy (bir martalik)** rasm, video va ovozli xabarlarni,
+**o'chirilgan** va **tahrirlangan** xabarlarni saqlaydi. Chat **tozalab yuborilsa**, butun yozishmani
+siz ulagan guruhga tashlaydi. Botdan faqat ruxsat berilgan odamlar foydalanadi. Ruxsatni admin
+(`OWNER_ID`) **bot ichida** beradi va oladi. Har bir foydalanuvchi faqat **o'zining** xabarlarini oladi.
 
 Bot shaxsiy chatlaringizni **Telegram Business → Chatbotlar** funksiyasi orqali ko'radi.
 
@@ -16,10 +16,14 @@ Bot shaxsiy chatlaringizni **Telegram Business → Chatbotlar** funksiyasi orqal
 
 | Holat | Natija |
 |---|---|
-| 🔥 Bir martalik rasm/video/ovoz/dumaloq video kelsa | Uni **ochmasdan turib** istalgan xabar bilan **reply** qiling (masalan `.`). Bot mediani sizga yuboradi va reply xabaringizni chatdan o'chiradi |
+| 🔥 Maxfiy (bir martalik) rasm/video/ovoz/dumaloq video kelsa | Uni **ochmasdan turib** istalgan xabar bilan **reply** qiling (masalan `.`). Bot mediani sizga yuboradi va reply xabaringizni chatdan o'chiradi |
+| Oddiy rasm yoki videoga reply qilsangiz | Hech narsa qilmaydi |
 | 🗑 Suhbatdosh xabarni o'chirsa | O'chirilgan matn yoki media sizga keladi |
 | ✏️ Suhbatdosh xabarni tahrirlasa | Eski va yangi matn sizga keladi |
-| Oddiy rasm yoki videoga reply qilsangiz | Uni ham saqlab beradi |
+| 🧹 Chat tozalab yuborilsa | Butun yozishma guruhga keladi: sarlavha, to'liq yozishma (HTML fayl, brauzerda ochiladi) va barcha rasm/video/fayllar raqamlari bilan. Guruh ulanmagan bo'lsa, botning o'ziga keladi |
+
+Maxfiy mediani bot shunday ajratadi: Telegram maxfiy mediani botga oddiy xabar sifatida yubormaydi,
+uni faqat reply ichida ko'rsatadi. Shuning uchun bot oldin ko'rmagan media maxfiy hisoblanadi.
 
 Xabarlar serverdagi SQLite bazasida `KEEP_DAYS` kun (standart 30 kun) saqlanadi, keyin o'zi tozalanadi.
 
@@ -104,18 +108,27 @@ Ikkala usulda ham server qayta yonganda yoki bot yiqilib qolganda u o'zi qayta i
 
 Ulangandan keyin bot sizga **"✅ Bot akkauntingizga ulandi!"** deb yozadi.
 
-## 4. Boshqa odamlarga ruxsat berish
+## 4. Guruhni ulash (tozalangan chatlar uchun)
 
-Bot o'rnatilgan serverda quyidagi buyruqni yozing. ID'larni vergul bilan ajrating.
-Ro'yxat to'liq almashtiriladi, shuning uchun hamma kerakli ID'larni yozing:
+1. Telegram'da yangi guruh yarating (masalan «Arxiv»)
+2. Guruhga botni qo'shing. Bot o'zi ulanadi va guruhga «✅ Guruh ulandi» deb yozadi
+   (yoki guruhda `/setgroup` yozing)
+3. Uzish: guruhda `/unsetgroup` yozing yoki botni guruhdan chiqaring
 
-```bash
-ALLOWED_IDS=111111111,222222222 bash <(curl -fsSL https://raw.githubusercontent.com/sunnatillaavazovofficial-jpg/ads/refs/heads/claude/inspiring-shannon-renzbu/telegram-saver-bot/setup.sh)
-```
+Har bir foydalanuvchi o'z guruhini ulaydi. Bir nechta odam bitta guruhni ham ulashi mumkin.
+Begona odam botni guruhga qo'shsa, bot o'zi chiqib ketadi.
 
-Keyin har bir odam o'z Telegram'ida botga `/start` yozadi va 3-bo'limdagidek botni
-o'z akkauntiga ulaydi. Ruxsatsiz odam ulanishga urinsa, bot uni rad etadi va sizga
-(admin'ga) uning ID'si bilan xabar yuboradi. Odam o'z ID'sini botga `/start` yozib bilib olishi mumkin.
+## 5. Odamlarga ruxsat berish (faqat bot orqali, admin)
+
+Admin botda quyidagi tugmalarni ko'radi:
+
+- **➕ Odam qo'shish**: Telegram kontaktlaringizdan odam tanlaysiz, unga darhol ruxsat beriladi
+- **ID raqamni yozib yuborish**: bot «Ruxsat berilsinmi?» deb so'raydi, **✅ Ha** bosasiz
+- **👥 Foydalanuvchilar**: ro'yxat (kim ulangan, kimda guruh bor) va **❌** tugmasi bilan ruxsatni olish
+- Ruxsatsiz odam botga `/start` yozsa, adminga **✅ Ruxsat berish / ❌ Rad etish** tugmalari bilan so'rov keladi
+- Buyruqlar: `/users`, `/add ID`, `/remove ID`
+
+Ruxsat berilgan odam botga `/start` yozadi va 3-bo'limdagidek botni o'z akkauntiga ulaydi.
 
 ---
 
@@ -125,7 +138,8 @@ o'z akkauntiga ulaydi. Ruxsatsiz odam ulanishga urinsa, bot uni rad etadi va siz
 |---|---|---|
 | `BOT_TOKEN` | — | BotFather bergan token (majburiy) |
 | `OWNER_ID` | — | Sizning Telegram ID raqamingiz, admin (majburiy) |
-| `ALLOWED_IDS` | — | Botdan foydalana oladigan qo'shimcha odamlar ID'lari, vergul bilan |
+| `ALLOWED_IDS` | — | Birinchi ishga tushishda qo'shiladigan odamlar (keyin ruxsatlar bot orqali boshqariladi) |
+| `CLEAR_MIN` | `5` | Bir vaqtda shuncha xabar o'chirilsa, «chat tozalandi» deb hisoblanadi |
 | `KEEP_DAYS` | `30` | Xabarlar bazada necha kun saqlanadi |
 | `TZ_OFFSET` | `5` | Vaqt zonasi, UTC+N (Toshkent = 5) |
 | `DELETE_TRIGGER_REPLY` | `1` | Reply xabaringizni avtomatik o'chirish (`1`/`0`) |
@@ -135,6 +149,8 @@ o'z akkauntiga ulaydi. Ruxsatsiz odam ulanishga urinsa, bot uni rad etadi va siz
 
 - Bot faqat **ulangandan keyin** kelgan xabarlarni ko'radi. Undan oldin o'chirilgan xabarlarni tiklay olmaydi.
 - Bir martalik mediani **ochishdan oldin** reply qilish kerak. Ochilgandan keyin Telegram uni o'chirib yuboradi.
+- Bot ulanishidan oldin (yoki `KEEP_DAYS` dan oldin) kelgan oddiy media maxfiy deb hisoblanishi mumkin.
+- Tozalangan chatdan faqat bot ulangandan keyingi xabarlar tiklanadi.
 - Telegram Bot API orqali 20 MB dan katta faylni yuklab bo'lmaydi.
 - Faqat shaxsiy chatlar ishlaydi. Guruh va kanallar Business orqali ulanmaydi.
 
